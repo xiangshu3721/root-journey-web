@@ -1,0 +1,12 @@
+# Dependencies and generated builds
+node_modules/
+dist/
+
+# Local credentials must never be committed
+.env
+.env.local
+.env.*.local
+!.env.example
+
+.DS_Store
+npm-debug.log*

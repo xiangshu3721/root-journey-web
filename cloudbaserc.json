@@ -1,0 +1,13 @@
+{
+  "$schema": "https://static.cloudbase.net/cli/cloudbaserc.schema.json",
+  "envId": "root-journey-prod-d4d7pzd0a8f805",
+  "functionRoot": "cloudfunctions",
+  "functions": [
+    {
+      "name": "root-journey-api",
+      "timeout": 30,
+      "runtime": "Nodejs20.19",
+      "handler": "index.main"
+    }
+  ]
+}
