@@ -3,7 +3,7 @@ import { api } from './lib/api';
 import { createMaterial, freshJourney, sections, selfSections } from './lib/demo';
 import type { Approval, InnerRole, JourneyData, PersonId, View } from './types';
 
-const nav: [View, string, string][] = [['home', '◉', '我的地图'], ['archives', '◌', '人物档案'], ['system', '◎', '家庭系统'], ['inner', '◐', '内在角色'], ['dilemma', '✦', '当前困惑']];
+const nav: [View, string, string][] = [['home', '◉', '我的地图'], ['archives', '◌', '人物档案'], ['inner', '◐', '内在角色'], ['dilemma', '✦', '当前困惑']];
 const label: Record<PersonId, string> = { self: '我自己', father: '父亲', mother: '母亲' };
 
 export default function App() {
