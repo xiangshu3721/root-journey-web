@@ -1,13 +1,18 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { createMaterial } from '../lib/demo';
-import type { JourneyData } from '../types';
+import type { JourneyData, PersonId } from '../types';
 
+const people: { id: PersonId; archive: string }[] = [{ id: 'mother', archive: '母亲的「生命故事」' }, { id: 'father', archive: '父亲的「生命故事」' }, { id: 'self', archive: '自己的「成长故事」' }];
 export function QuickRecord({ data }: { data: JourneyData }) {
   const [text, setText] = useState('');
   const [saved, setSaved] = useState(false);
-  async function save() { if (!text.trim()) return; const material = createMaterial('mother', '生命故事', text.trim(), 'write'); await api.save({ ...data, materials: [material, ...data.materials] }); setText(''); setSaved(true); }
-  return <section className="quick-record"><span>下一步最值得补充</span><h2>“母亲年轻时，最想要什么？”</h2><textarea value={text} onChange={(event) => { setText(event.target.value); setSaved(false); }} placeholder="直接写下你记得的故事、她说过的话，或你想进一步了解的部分…"/><div><small>{saved ? '已收进母亲的生命故事。' : '这段材料会收进母亲的「生命故事」档案。'}</small><button className="primary" onClick={() => void save()}>收进生命档案 <b>→</b></button></div></section>;
+  const [target, setTarget] = useState(() => people[Math.floor(Math.random() * people.length)]);
+  const [question, setQuestion] = useState('正在为你生成一个问题…');
+  useEffect(() => { let mounted = true; void api.interviewQuestion(target.id, target.id === 'self' ? '成长故事' : '生命故事', data.materials).then((next) => { if (mounted) setQuestion(next); }); return () => { mounted = false; }; }, []);
+  async function save() { if (!text.trim()) return; const material = createMaterial(target.id, target.id === 'self' ? '成长故事' : '生命故事', text.trim(), 'write'); await api.save({ ...data, materials: [material, ...data.materials] }); setText(''); setSaved(true); }
+  async function anotherQuestion() { const nextTarget = people[Math.floor(Math.random() * people.length)]; setTarget(nextTarget); setQuestion('正在为你生成另一个问题…'); setQuestion(await api.interviewQuestion(nextTarget.id, nextTarget.id === 'self' ? '成长故事' : '生命故事', data.materials)); }
+  return <section className="quick-record"><span>下一步最值得补充 · AI 随机提问</span><h2>“{question}”</h2><button className="new-question" onClick={() => void anotherQuestion()}>换一个问题　↻</button><textarea value={text} onChange={(event) => { setText(event.target.value); setSaved(false); }} placeholder="直接写下你记得的故事、说过的话，或此刻浮现的感受…"/><div><small>{saved ? `已收进${target.archive}。` : `这段材料会收进${target.archive}。`}</small><button className="primary" onClick={() => void save()}>收进生命档案 <b>→</b></button></div></section>;
 }
 
 export function OneOnOneGuide({ data }: { data: JourneyData }) {
