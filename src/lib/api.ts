@@ -19,6 +19,33 @@ export const api = {
   async load(): Promise<JourneyData | null> { if (!demo && baseUrl) return call<JourneyData>('journey/load', {}); const raw = localStorage.getItem(KEY); return raw ? JSON.parse(raw) as JourneyData : null; },
   async save(data: JourneyData) { if (!demo && baseUrl) return call('journey/save', data); localStorage.setItem(KEY, JSON.stringify(data)); },
   async interviewQuestion(personId: PersonId, section: string, materials: Material[]) { const fallback = fallbackQuestions[personId][Math.floor(Math.random() * fallbackQuestions[personId].length)]; if (!baseUrl) return fallback; try { const result = await call<{ question: string }>('ai/interview-question', { personId, section, materials: materials.slice(0, 6), fallback }); return result.question || fallback; } catch { return fallback; } },
+  async classifyMaterial(personId: PersonId, text: string, availableSections: string[]) {
+    const keywordGroups: Array<[string, RegExp]> = [
+      ['家庭系统', /外婆|外公|爷爷|奶奶|祖辈|兄弟|姐妹|家里|父母|家庭/],
+      ['生命故事', /小时候|童年|上学|毕业|结婚|离婚|工作|转折|年轻/],
+      ['成长故事', /成长|青春期|小时候|那一年|后来/],
+      ['教育经历', /学校|老师|上学|成绩|考试|大学|读书/],
+      ['社会与工作经历', /工作|公司|职业|同事|老板|创业|收入/],
+      ['性格特质', /性格|脾气|敏感|坚强|内向|外向|习惯/],
+      ['优势与资源', /擅长|能力|优点|努力|资源|厉害/],
+      ['局限与代价', /害怕|压抑|讨好|控制|焦虑|缺点|委屈/],
+      ['价值观与三观', /认为|觉得|重要|应该|成功|金钱|责任/],
+      ['生存方式', /压力|冲突|责任|爱|逃避|忍耐|保护/],
+      ['关系与生存方式', /关系|亲密|朋友|伴侣|冲突|沟通/],
+      ['我与原生家庭', /影响我|现在的我|原生家庭|我因此|我学会/],
+      ['当前困惑与成长课题', /困惑|问题|改变|突破|不知道怎么办/],
+      ['对我的影响', /影响我|现在|关系|工作|自我评价/]
+    ];
+    const fallback = keywordGroups.find(([section, pattern]) => availableSections.includes(section) && pattern.test(text))?.[0] || availableSections[availableSections.length - 1] || '其他';
+    if (!baseUrl) return { section: fallback, reason: `系统暂时归入「${fallback}」，后续会随着更多材料持续校正。` };
+    try {
+      const result = await call<{ section?: string; reason?: string }>('ai/classify-material', { personId, text, sections: availableSections });
+      const section = result.section && availableSections.includes(result.section) ? result.section : fallback;
+      return { section, reason: result.reason || `系统暂时归入「${section}」，后续会随着更多材料持续校正。` };
+    } catch {
+      return { section: fallback, reason: `系统暂时归入「${fallback}」，后续会随着更多材料持续校正。` };
+    }
+  },
   async summarize(personId: PersonId, section: string, material: Material): Promise<Insight> { if (baseUrl) { try { return await call('ai/cheap-summary', { personId, section, material }); } catch { /* 演示环境保留本地回退 */ } } return { id: crypto.randomUUID(), kind: 'summary', status: 'pending', sourceIds: [material.id], title: '一段待你确认的理解', body: `从这段关于${personId === 'father' ? '父亲' : personId === 'mother' ? '母亲' : '自己'}的材料里，我暂时看到一种为了适应环境而形成的方式。它值得继续被补充和核对，而不是被匆忙定义。` }; },
   async deepInsight(question: string, materials: Material[]): Promise<Insight> { if (baseUrl) { try { return await call('ai/deep-insight', { question, materials }); } catch { /* 演示环境保留本地回退 */ } } return { id: crypto.randomUUID(), kind: 'dilemma', status: 'pending', sourceIds: materials.slice(0, 3).map((m) => m.id), title: '从原生家庭视角的一种可能理解', body: `关于“${question}”，目前材料提示：你可能很早学会先关注他人的期待与情绪。这不是定论；请根据自己的真实经验核对它是否成立。` }; },
   async systemHypothesis(materials: Material[]): Promise<Insight> { if (baseUrl) { try { return await call('ai/system-hypothesis', { materials }); } catch { /* 演示环境保留本地回退 */ } } return { id: crypto.randomUUID(), kind: 'hypothesis', status: 'pending', sourceIds: materials.slice(0, 3).map((m) => m.id), title: '一条待验证的影响链', body: '家庭中关于责任、期待与情绪表达的方式，可能让你更早学会关注他人的需要。这只是一个等待你核对的理解。' }; },

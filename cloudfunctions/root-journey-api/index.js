@@ -32,6 +32,14 @@ const server = http.createServer(async (req, res) => {
     if (path.endsWith('/auth/send-code')) return send(res, 501, { message: '请先在 CloudBase 身份认证中启用短信登录；前端将直接调用 CloudBase Auth。' });
     if (path.endsWith('/auth/verify-code')) return send(res, 501, { message: '短信认证改由 CloudBase Auth SDK 完成，不由云函数自行签发 Token。' });
     if (path.endsWith('/ai/interview-question')) return send(res, 200, { question: await askModel('只提出一个适合继续录入的开放问题，不解释、不编号，问题应围绕指定人物与当前档案栏目。', body) });
+    if (path.endsWith('/ai/classify-material')) {
+      const sections = Array.isArray(body.sections) ? body.sections : [];
+      const content = await askModel('把这段自由录入材料归入 sections 中最贴近的一项。只返回 JSON，不要 Markdown，格式为 {"section":"栏目名称","reason":"不超过40字的归类原因"}。section 必须完全等于给定 sections 中的一项；无法判断时选择“其他”或最后一项。', body);
+      let parsed = {};
+      try { parsed = JSON.parse((content.match(/\{[\s\S]*\}/) || [content])[0]); } catch { /* 使用保底栏目 */ }
+      const section = sections.includes(parsed.section) ? parsed.section : (sections.includes('其他') ? '其他' : sections[sections.length - 1]);
+      return send(res, 200, { section, reason: typeof parsed.reason === 'string' ? parsed.reason : '系统已完成初步归类，后续会随着更多材料持续校正。' });
+    }
     if (path.endsWith('/ai/cheap-summary')) return send(res, 200, { id: randomUUID(), kind: 'summary', status: 'pending', title: '一段待你确认的理解', body: await askModel('整理单段访谈材料；不超过 160 字，使用“可能”“暂时”等措辞。', body), sourceIds: [body.material?.id].filter(Boolean) });
     if (path.endsWith('/ai/system-hypothesis')) return send(res, 200, { id: randomUUID(), kind: 'hypothesis', status: 'pending', title: '一条待验证的影响链', body: await askModel('基于已有材料，提出一条家庭系统影响链；不超过 180 字，明确它等待用户核对。', body), sourceIds: (body.materials || []).slice(0, 8).map((item) => item.id) });
     if (path.endsWith('/ai/inner-chat')) return send(res, 200, { reply: await askModel('以“内在角色”的温和陪伴口吻回应用户。不要模仿现实父母，不要做诊断；不超过 120 字，先回应感受再邀请觉察。', body) });
