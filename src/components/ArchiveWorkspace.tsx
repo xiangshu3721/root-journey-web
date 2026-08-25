@@ -34,6 +34,7 @@ export function ArchiveWorkspace({ data, persist, toast }: { data: JourneyData; 
   const [classifying, setClassifying] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [classificationMessage, setClassificationMessage] = useState('');
+  const [pendingFocus, setPendingFocus] = useState('');
   const person = data.people[personId];
   const materialsFor = (section: string, source = data) => source.materials.filter((item) => item.personId === personId && archiveSection(section).includes(item.section));
   const insightFor = (section: string, source = data) => {
@@ -44,7 +45,8 @@ export function ArchiveWorkspace({ data, persist, toast }: { data: JourneyData; 
   const focusedInsight = insightFor(focus);
 
   useEffect(() => {
-    setFocus(dimensions[0]);
+    setFocus(pendingFocus || dimensions[0]);
+    setPendingFocus('');
     setText('');
     setQuestion('');
     setClassificationMessage('');
@@ -74,7 +76,7 @@ export function ArchiveWorkspace({ data, persist, toast }: { data: JourneyData; 
   async function ask() {
     setGuiding(true);
     try {
-      setQuestion(await api.interviewQuestion(personId, '开放录入', data.materials.filter((item) => item.personId === personId)));
+      setQuestion(await api.familyQuestion(data.materials));
     } finally {
       setGuiding(false);
     }
@@ -84,9 +86,11 @@ export function ArchiveWorkspace({ data, persist, toast }: { data: JourneyData; 
     if (!text.trim()) return;
     setClassifying(true);
     try {
-      const classified = await api.classifyMaterial(personId, text.trim(), dimensions);
-      const material = createMaterial(personId, classified.section, text.trim(), question ? 'interview' : 'write');
+      const classified = await api.classifyMaterial(text.trim(), { mother: sections, father: sections, self: selfSections });
+      const material = createMaterial(classified.personId, classified.section, text.trim(), question ? 'interview' : 'write');
       await persist({ ...data, materials: [material, ...data.materials] });
+      setPendingFocus(classified.section);
+      setPersonId(classified.personId);
       setFocus(classified.section);
       setClassificationMessage(`系统已初步归入「${classified.section}」：${classified.reason}`);
       setText('');
@@ -126,9 +130,9 @@ export function ArchiveWorkspace({ data, persist, toast }: { data: JourneyData; 
 
     <section className="free-recorder">
       <header><div><span>生命材料录入</span><h2>自由记录，系统会自动理解与归类。</h2></div><button className="text-button" onClick={() => void ask()}>{guiding ? '正在生成问题…' : '让 AI 引导我录入'}</button></header>
-      {question && <div className="record-question"><span>AI 提问</span><p>{question}</p><button onClick={() => void ask()}>换一个问题　↻</button></div>}
-      <textarea value={text} onChange={(event) => setText(event.target.value)} placeholder={`聊聊${personId === 'self' ? '自己的经历、感受或记得的故事' : `你记得的${labels[personId]}：一段故事、一句话或一个印象`}……`} />
-      <div className="recorder-actions"><small>{classificationMessage || '不需要选择记录位置。保存后，系统会结合内容自动归类，并用于相应维度的洞察。'}</small><button className="primary" disabled={classifying || !text.trim()} onClick={() => void save()}>{classifying ? '正在理解材料…' : '收进生命材料库'} <b>→</b></button></div>
+      {question && <div className="record-question"><span>AI 家庭提问</span><p>{question}</p><button onClick={() => void ask()}>换一个问题　↻</button></div>}
+      <textarea value={text} onChange={(event) => setText(event.target.value)} placeholder="写下关于母亲、父亲、你自己，或三人关系的一段故事、一句话或一个印象……" />
+      <div className="recorder-actions"><small>{classificationMessage || '不需要选择人物或记录位置。保存后，系统会判断材料主要涉及母亲、父亲还是你自己，并用于相应维度的洞察。'}</small><button className="primary" disabled={classifying || !text.trim()} onClick={() => void save()}>{classifying ? '正在理解材料…' : '收进生命材料库'} <b>→</b></button></div>
     </section>
   </div>;
 }

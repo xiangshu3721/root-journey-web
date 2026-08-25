@@ -8,8 +8,16 @@ const fallbackQuestions: Record<PersonId, string[]> = {
   father: ['你记得父亲小时候的家庭、父母或兄弟姐妹是什么样的吗？', '父亲年轻时最想要的生活是什么？他后来得到或失去了什么？', '当父亲压力很大时，他通常会怎么做？', '你最早从父亲身上学会了什么关于责任的事？'],
   self: ['回想成长中的一段经历：它如何影响了今天的你？', '在你的成长里，哪一个阶段让你觉得自己变化最大？', '你什么时候最像自己？又什么时候最不像自己？', '你最早学会用什么方式保护自己？']
 };
+const familyQuestions = [
+  '回想一个三个人都在场的家庭片段：当时每个人在做什么、感受什么？',
+  '在你的家里，谁最常承担责任？谁的需要最容易被忽略？',
+  '父母发生分歧或有压力时，你通常会怎么做？',
+  '你从父亲和母亲身上，分别学会了什么关于爱、责任或成功的事？',
+  '如果把家庭比作一个小系统，你觉得自己过去扮演了什么角色？'
+];
 let verificationInfo: { verification_id: string; is_user: boolean } | undefined;
 let verifiedPhone = '';
+const labelsForPerson = (personId: PersonId) => personId === 'mother' ? '母亲' : personId === 'father' ? '父亲' : '我自己';
 const normalizePhone = (phone: string) => phone.startsWith('+86') ? phone : `+86 ${phone.replace(/\D/g, '')}`;
 async function call<T>(path: string, payload: unknown): Promise<T> { if (!cloudbaseConfigured || !baseUrl) throw new Error('CloudBase 服务尚未配置'); const res = await fetch(`${baseUrl}/${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); if (!res.ok) throw new Error('服务暂时不可用'); return res.json() as Promise<T>; }
 export const api = {
@@ -19,7 +27,15 @@ export const api = {
   async load(): Promise<JourneyData | null> { if (!demo && baseUrl) return call<JourneyData>('journey/load', {}); const raw = localStorage.getItem(KEY); return raw ? JSON.parse(raw) as JourneyData : null; },
   async save(data: JourneyData) { if (!demo && baseUrl) return call('journey/save', data); localStorage.setItem(KEY, JSON.stringify(data)); },
   async interviewQuestion(personId: PersonId, section: string, materials: Material[]) { const fallback = fallbackQuestions[personId][Math.floor(Math.random() * fallbackQuestions[personId].length)]; if (!baseUrl) return fallback; try { const result = await call<{ question: string }>('ai/interview-question', { personId, section, materials: materials.slice(0, 6), fallback }); return result.question || fallback; } catch { return fallback; } },
-  async classifyMaterial(personId: PersonId, text: string, availableSections: string[]) {
+  async familyQuestion(materials: Material[]) {
+    const fallback = familyQuestions[Math.floor(Math.random() * familyQuestions.length)];
+    if (!baseUrl) return fallback;
+    try {
+      const result = await call<{ question: string }>('ai/interview-question', { personId: 'family', section: '家庭自由录入（母亲、父亲与我自己）', materials: materials.slice(0, 10), fallback });
+      return result.question || fallback;
+    } catch { return fallback; }
+  },
+  async classifyMaterial(text: string, availableSectionsByPerson: Record<PersonId, string[]>) {
     const keywordGroups: Array<[string, RegExp]> = [
       ['家庭系统', /外婆|外公|爷爷|奶奶|祖辈|兄弟|姐妹|家里|父母|家庭/],
       ['生命故事', /小时候|童年|上学|毕业|结婚|离婚|工作|转折|年轻/],
@@ -36,14 +52,18 @@ export const api = {
       ['当前困惑与成长课题', /困惑|问题|改变|突破|不知道怎么办/],
       ['对我的影响', /影响我|现在|关系|工作|自我评价/]
     ];
+    const personId: PersonId = /母亲|妈妈|母爱|她/.test(text) ? 'mother' : /父亲|爸爸|父爱|他/.test(text) ? 'father' : 'self';
+    const availableSections = availableSectionsByPerson[personId];
     const fallback = keywordGroups.find(([section, pattern]) => availableSections.includes(section) && pattern.test(text))?.[0] || availableSections[availableSections.length - 1] || '其他';
-    if (!baseUrl) return { section: fallback, reason: `系统暂时归入「${fallback}」，后续会随着更多材料持续校正。` };
+    if (!baseUrl) return { personId, section: fallback, reason: `系统暂时归入「${labelsForPerson(personId)} · ${fallback}」，后续会随着更多材料持续校正。` };
     try {
-      const result = await call<{ section?: string; reason?: string }>('ai/classify-material', { personId, text, sections: availableSections });
-      const section = result.section && availableSections.includes(result.section) ? result.section : fallback;
-      return { section, reason: result.reason || `系统暂时归入「${section}」，后续会随着更多材料持续校正。` };
+      const result = await call<{ personId?: PersonId; section?: string; reason?: string }>('ai/classify-material', { text, sectionsByPerson: availableSectionsByPerson });
+      const classifiedPerson = result.personId && availableSectionsByPerson[result.personId] ? result.personId : personId;
+      const classifiedSections = availableSectionsByPerson[classifiedPerson];
+      const section = result.section && classifiedSections.includes(result.section) ? result.section : classifiedSections[classifiedSections.length - 1] || fallback;
+      return { personId: classifiedPerson, section, reason: result.reason || `系统暂时归入「${labelsForPerson(classifiedPerson)} · ${section}」，后续会随着更多材料持续校正。` };
     } catch {
-      return { section: fallback, reason: `系统暂时归入「${fallback}」，后续会随着更多材料持续校正。` };
+      return { personId, section: fallback, reason: `系统暂时归入「${labelsForPerson(personId)} · ${fallback}」，后续会随着更多材料持续校正。` };
     }
   },
   async summarize(personId: PersonId, section: string, material: Material): Promise<Insight> { if (baseUrl) { try { return await call('ai/cheap-summary', { personId, section, material }); } catch { /* 演示环境保留本地回退 */ } } return { id: crypto.randomUUID(), kind: 'summary', status: 'pending', sourceIds: [material.id], title: '一段待你确认的理解', body: `从这段关于${personId === 'father' ? '父亲' : personId === 'mother' ? '母亲' : '自己'}的材料里，我暂时看到一种为了适应环境而形成的方式。它值得继续被补充和核对，而不是被匆忙定义。` }; },
