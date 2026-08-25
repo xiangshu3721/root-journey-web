@@ -6,4 +6,4 @@ export interface Material { id: string; personId: PersonId; section: string; tex
 export interface Insight { id: string; title: string; body: string; sourceIds: string[]; status: Approval; kind: 'summary' | 'hypothesis' | 'dilemma'; }
 export interface InnerRole { id: 'innerFather' | 'innerMother' | 'innerChild'; name: string; avatar: string; trait: string; basedOn: PersonId[]; }
 export interface FamilyPatternAssessment { answers: number[]; scores: number[]; completedAt: string; }
-export interface JourneyData { profile: { name: string; phone: string; avatar: string; motto: string }; people: Record<PersonId, Person>; materials: Material[]; insights: Insight[]; innerRoles: InnerRole[]; familyAssessment?: FamilyPatternAssessment; }
+export interface JourneyData { profile: { name: string; phone: string; avatar: string; motto: string; wechatQr: string }; people: Record<PersonId, Person>; materials: Material[]; insights: Insight[]; innerRoles: InnerRole[]; familyAssessment?: FamilyPatternAssessment; }

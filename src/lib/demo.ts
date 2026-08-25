@@ -3,7 +3,7 @@ const id = () => crypto.randomUUID();
 export const sections = ['父亲的家庭系统', '生命故事', '性格特质', '优势与资源', '局限与代价', '擅长与不擅长', '价值观与三观', '生存方式', '对我的影响', '其他'];
 export const selfSections = ['成长故事', '教育经历', '社会与工作经历', '性格特质', '优势与资源', '局限与代价', '关系与生存方式', '我与原生家庭', '当前困惑与成长课题', '其他'];
 export const freshJourney = (): JourneyData => ({
-  profile: { name: '林然', phone: '', avatar: '林', motto: '把人生重新拿回来。' },
+  profile: { name: '林然', phone: '', avatar: '林', motto: '把人生重新拿回来。', wechatQr: '' },
   people: {
     self: { id: 'self', name: '我自己', nickname: '林然', avatar: '我', birthDate: '', birthplace: '' },
     father: { id: 'father', name: '父亲', nickname: '父亲', avatar: '父', birthDate: '', birthplace: '' },
