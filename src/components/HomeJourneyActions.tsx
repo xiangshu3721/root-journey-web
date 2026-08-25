@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { createMaterial } from '../lib/demo';
 import type { JourneyData, PersonId } from '../types';
+import wechatQr from '../assets/wechat-qr.jpg';
 
 const people: { id: PersonId; archive: string }[] = [{ id: 'mother', archive: '母亲的「生命故事」' }, { id: 'father', archive: '父亲的「生命故事」' }, { id: 'self', archive: '自己的「成长故事」' }];
 export function QuickRecord({ data }: { data: JourneyData }) {
@@ -16,7 +17,7 @@ export function QuickRecord({ data }: { data: JourneyData }) {
 }
 
 export function OneOnOneGuide({ data }: { data: JourneyData }) {
-  const [qr, setQr] = useState(data.profile.wechatQr || '');
+  const [qr, setQr] = useState(data.profile.wechatQr || wechatQr);
   function upload(file?: File) { if (!file || !file.type.startsWith('image/')) return; const reader = new FileReader(); reader.onload = () => { const value = String(reader.result); setQr(value); void api.save({ ...data, profile: { ...data.profile, wechatQr: value } }); }; reader.readAsDataURL(file); }
   return <section className="one-on-one"><div><span>1v1 深度工作</span><h2>想找个人深入聊聊，<br/>进一步突破与升级？</h2><p>带着你的生命材料和关系模式图谱，进入更具体、更有支持的工作。</p></div><label className="qr-slot">{qr ? <img src={qr} alt="微信联系二维码"/> : <><b>微信二维码</b><small>上传后，用户可扫码联系</small></>}<input type="file" accept="image/*" onChange={(event) => upload(event.target.files?.[0])}/></label></section>;
 }
