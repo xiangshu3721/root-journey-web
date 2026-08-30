@@ -5,8 +5,7 @@ const baseUrl = import.meta.env.VITE_CLOUDBASE_FUNCTION_URL as string | undefine
 const demo = import.meta.env.VITE_DEMO_MODE !== 'false';
 const fallbackQuestions: Record<PersonId, string[]> = {
   mother: ['如果从母亲的童年开始讲起，你最想先了解她与谁的关系？', '你记得母亲年轻时最想拥有、却未必得到的是什么吗？', '在你印象里，母亲如何表达爱、担心或不满？', '母亲承担过哪些不该由她一个人承担的责任？'],
-  father: ['你记得父亲小时候的家庭、父母或兄弟姐妹是什么样的吗？', '父亲年轻时最想要的生活是什么？他后来得到或失去了什么？', '当父亲压力很大时，他通常会怎么做？', '你最早从父亲身上学会了什么关于责任的事？'],
-  self: ['回想成长中的一段经历：它如何影响了今天的你？', '在你的成长里，哪一个阶段让你觉得自己变化最大？', '你什么时候最像自己？又什么时候最不像自己？', '你最早学会用什么方式保护自己？']
+  father: ['你记得父亲小时候的家庭、父母或兄弟姐妹是什么样的吗？', '父亲年轻时最想要的生活是什么？他后来得到或失去了什么？', '当父亲压力很大时，他通常会怎么做？', '你最早从父亲身上学会了什么关于责任的事？']
 };
 const familyQuestions = [
   '回想一个三个人都在场的家庭片段：当时每个人在做什么、感受什么？',
@@ -17,7 +16,7 @@ const familyQuestions = [
 ];
 let verificationInfo: { verification_id: string; is_user: boolean } | undefined;
 let verifiedPhone = '';
-const labelsForPerson = (personId: PersonId) => personId === 'mother' ? '母亲' : personId === 'father' ? '父亲' : '我自己';
+const labelsForPerson = (personId: PersonId) => personId === 'mother' ? '母亲' : '父亲';
 const normalizePhone = (phone: string) => phone.startsWith('+86') ? phone : `+86 ${phone.replace(/\D/g, '')}`;
 async function call<T>(path: string, payload: unknown): Promise<T> { if (!cloudbaseConfigured || !baseUrl) throw new Error('CloudBase 服务尚未配置'); const res = await fetch(`${baseUrl}/${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); if (!res.ok) throw new Error('服务暂时不可用'); return res.json() as Promise<T>; }
 export const api = {
@@ -52,7 +51,7 @@ export const api = {
       ['当前困惑与成长课题', /困惑|问题|改变|突破|不知道怎么办/],
       ['对我的影响', /影响我|现在|关系|工作|自我评价/]
     ];
-    const personId: PersonId = /母亲|妈妈|母爱|她/.test(text) ? 'mother' : /父亲|爸爸|父爱|他/.test(text) ? 'father' : 'self';
+    const personId: PersonId = /父亲|爸爸|父爱/.test(text) ? 'father' : 'mother';
     const availableSections = availableSectionsByPerson[personId];
     const fallback = keywordGroups.find(([section, pattern]) => availableSections.includes(section) && pattern.test(text))?.[0] || availableSections[availableSections.length - 1] || '其他';
     if (!baseUrl) return { personId, section: fallback, reason: `系统暂时归入「${labelsForPerson(personId)} · ${fallback}」，后续会随着更多材料持续校正。` };
