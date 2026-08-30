@@ -12,7 +12,7 @@ const send = (res, status, payload) => {
 const bodyOf = (req) => new Promise((resolve, reject) => { let raw = ''; req.on('data', (chunk) => { raw += chunk; }); req.on('end', () => { try { resolve(raw ? JSON.parse(raw) : {}); } catch { reject(new Error('请求数据不是有效 JSON')); } }); req.on('error', reject); });
 const instruction = (task, payload) => `你是“寻根之旅·原生家庭考古”的 AI 生命档案师。只基于用户给出的材料提出可验证、待用户确认的理解；不诊断人格，不替人下结论，不许诺疗愈效果。表达温和、具体、简洁。任务：${task}\n材料：${JSON.stringify(payload)}`;
 const portraitTopics = ['人生背景摘要', '成长经历', '性格倾向', '核心价值观', '最看重什么', '可能最害怕什么', '爱的表达方式', '愤怒表达方式', '冲突处理方式', '对家庭的理解', '对孩子的主要期待', '对我的主要态度', '常说的话 / 语言风格', '重要人生局限', '时代与家庭环境的影响'];
-const isSafePortraitText = (value) => typeof value === 'string' && value.trim().length >= 8 && value.trim().length <= 180 && !/(请基于|任务[:：]|材料[:：]|输出|生成结构化|覆盖[:：]|维度可能呈现|不诊断|不下定论|当前材料提示|等待用户核对)/.test(value);
+const isSafePortraitText = (value) => typeof value === 'string' && value.trim().length >= 8 && value.trim().length <= 180 && !/(请基于|任务[:：]|材料[:：]|输出|生成结构化|覆盖[:：]|维度可能呈现|不诊断|不下定论|当前材料提示|等待用户核对|材料未提及|未提供具体|信息不足)/.test(value);
 async function askModel(task, payload) {
   const url = process.env.DEEPSEEK_API_URL || 'https://api.deepseek.com/chat/completions';
   const key = process.env.DEEPSEEK_API_KEY;

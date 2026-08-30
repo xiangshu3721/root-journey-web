@@ -4,7 +4,7 @@ import type { Insight, JourneyData, PersonId } from '../types';
 
 const labels: Record<PersonId, string> = { father: '父亲', mother: '母亲' };
 const topics = ['人生背景摘要', '成长经历', '性格倾向', '核心价值观', '最看重什么', '可能最害怕什么', '爱的表达方式', '愤怒表达方式', '冲突处理方式', '对家庭的理解', '对孩子的主要期待', '对我的主要态度', '常说的话 / 语言风格', '重要人生局限', '时代与家庭环境的影响'];
-const invalidPortraitText = /(请基于|任务[:：]|材料[:：]|输出|生成结构化|覆盖[:：]|维度可能呈现|不诊断|不下定论|当前材料提示|等待用户核对)/;
+const invalidPortraitText = /(请基于|任务[:：]|材料[:：]|输出|生成结构化|覆盖[:：]|维度可能呈现|不诊断|不下定论|当前材料提示|等待用户核对|从你记录的内容看|提供了一条可继续核对的线索|这是理解.{0,4}起点)/;
 
 function hasUsableSections(value: Insight | undefined) {
   return Boolean(value?.portraitSections && Object.values(value.portraitSections).some((item) => item.trim().length >= 8 && !invalidPortraitText.test(item)));
@@ -27,7 +27,7 @@ export function ParentPortraits({ data, persist, toast }: { data: JourneyData; p
       const output = await api.parentPortrait(personId, materials);
       const sections = Object.fromEntries(Object.entries(output?.sections || {}).filter(([topic, text]) => topics.includes(topic) && typeof text === 'string' && text.trim().length >= 8 && text.trim().length <= 180 && !invalidPortraitText.test(text)));
       if (!Object.keys(sections).length) {
-        toast('材料已保存，但暂时不足以形成可靠画像；系统不会用模板补全。');
+        toast('DeepSeek 暂时没有返回可用分析，已保留材料；刷新后会自动重试。');
         return;
       }
       const next: Insight = {
@@ -58,9 +58,9 @@ export function ParentPortraits({ data, persist, toast }: { data: JourneyData; p
     <section className="portrait-profile"><i>{role.avatar}</i><div><span>内在角色</span><h2>{role.name}</h2><p>材料基础：{materials.length} 条关于{labels[personId]}的原始记录</p></div><button className="text-button" onClick={edit}>修改头像与称呼</button></section>
     {portrait ? <section className="portrait-result">
       <span>动态画像 · 基于 {portrait.sourceIds.length} 条可追溯材料</span><h2>{portrait.title}</h2>
-      <p className="portrait-note">每一项只呈现已有材料能支持的理解；空白处会保留为资料不足。</p>
+      <p className="portrait-note">以下是 DeepSeek 基于已录入经历形成的画像结论；没有材料支持的维度会保留为空白。</p>
       <div className="portrait-dimensions">{topics.map((title) => { const text = portrait.portraitSections?.[title]; return <article key={title} className={text ? '' : 'insufficient'}><b>{title}</b><p>{text || '暂无足够材料形成这项理解。'}</p></article>; })}</div>
       <details><summary>查看形成这版画像的原始材料</summary>{materials.filter((item) => portrait.sourceIds.includes(item.id)).map((item) => <p key={item.id}>· {item.text}</p>)}</details>
-    </section> : <section className="portrait-empty"><h2>{generating ? '正在从材料中整理内在角色…' : '内在角色正在形成'}</h2><p>{materials.length ? '已有材料正在被重新核对。若缺少可靠洞见，系统会保持空白，而不是用泛化文案填充。' : `关于${labels[personId]}的资料还不够，先写下一段真实经历吧。`}</p></section>}
+    </section> : <section className="portrait-empty"><h2>{generating ? 'DeepSeek 正在分析内在角色…' : '内在角色正在形成'}</h2><p>{materials.length ? '系统会基于这些材料生成具体的画像结论；不会用原文改写或泛化模板代替分析。' : `关于${labels[personId]}的资料还不够，先写下一段真实经历吧。`}</p></section>}
   </div>;
 }

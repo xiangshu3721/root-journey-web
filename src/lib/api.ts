@@ -18,27 +18,6 @@ let verificationInfo: { verification_id: string; is_user: boolean } | undefined;
 let verifiedPhone = '';
 const labelsForPerson = (personId: PersonId) => personId === 'mother' ? '母亲' : '父亲';
 const normalizePhone = (phone: string) => phone.startsWith('+86') ? phone : `+86 ${phone.replace(/\D/g, '')}`;
-const portraitTopics = ['人生背景摘要', '成长经历', '性格倾向', '核心价值观', '最看重什么', '可能最害怕什么', '爱的表达方式', '愤怒表达方式', '冲突处理方式', '对家庭的理解', '对孩子的主要期待', '对我的主要态度', '常说的话 / 语言风格', '重要人生局限', '时代与家庭环境的影响'];
-const portraitKeywords: Record<string, RegExp> = {
-  '人生背景摘要': /小时候|童年|年轻|出生|家里|父母|成长/, '成长经历': /小时候|童年|上学|读书|工作|结婚|后来|年轻/,
-  '性格倾向': /性格|脾气|敏感|强势|安静|坚强|内向|外向|习惯/, '核心价值观': /觉得|认为|重要|应该|成功|钱|责任/,
-  '最看重什么': /最.*重要|在乎|看重|成绩|家庭|工作|钱/, '可能最害怕什么': /害怕|担心|焦虑|不安|失去/,
-  '爱的表达方式': /爱|关心|照顾|陪伴|付出/, '愤怒表达方式': /生气|发火|愤怒|骂|吵/,
-  '冲突处理方式': /冲突|吵架|冷战|沉默|争执|沟通/, '对家庭的理解': /家庭|家里|婚姻|父母/,
-  '对孩子的主要期待': /希望我|要求我|期待|成绩|听话|懂事/, '对我的主要态度': /对我|我妈|母亲.*我|父亲.*我/,
-  '常说的话 / 语言风格': /说过|常说|总说|会说|骂我/, '重要人生局限': /遗憾|困难|挫折|没.*机会|失去|局限/,
-  '时代与家庭环境的影响': /年代|农村|城市|时代|家境|经济|家庭环境/
-};
-function localPortraitFallback(materials: Material[]) {
-  const sections: Record<string, string> = {};
-  const clip = (text: string) => text.replace(/\s+/g, ' ').trim().slice(0, 96);
-  portraitTopics.forEach((topic) => {
-    const source = materials.find((material) => portraitKeywords[topic].test(material.text));
-    if (source) sections[topic] = `从你记录的内容看：${clip(source.text)}。这为理解「${topic}」提供了一条可继续核对的线索。`;
-  });
-  if (!Object.keys(sections).length && materials[0]) sections['人生背景摘要'] = `目前记录到：${clip(materials[0].text)}。这是理解她人生处境的一条起点，后续会随着更多真实经历继续更新。`;
-  return { sections };
-}
 async function call<T>(path: string, payload: unknown): Promise<T> { if (!cloudbaseConfigured || !baseUrl) throw new Error('CloudBase 服务尚未配置'); const res = await fetch(`${baseUrl}/${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); if (!res.ok) throw new Error('服务暂时不可用'); return res.json() as Promise<T>; }
 export const api = {
   async sendCode(phone: string) { if (demo) return; if (cloudbaseAuth) { verifiedPhone = normalizePhone(phone); verificationInfo = await cloudbaseAuth.getVerification({ phone_number: verifiedPhone }); return; } if (!baseUrl) return; await call('auth/send-code', { phone }); },
@@ -89,11 +68,11 @@ export const api = {
   async summarize(personId: PersonId, section: string, material: Material): Promise<Insight> { if (baseUrl) { try { return await call('ai/cheap-summary', { personId, section, material }); } catch { /* 演示环境保留本地回退 */ } } return { id: crypto.randomUUID(), kind: 'summary', status: 'pending', sourceIds: [material.id], title: '一段待你确认的理解', body: `从这段关于${personId === 'father' ? '父亲' : personId === 'mother' ? '母亲' : '自己'}的材料里，我暂时看到一种为了适应环境而形成的方式。它值得继续被补充和核对，而不是被匆忙定义。` }; },
   async deepInsight(question: string, materials: Material[]): Promise<Insight> { if (baseUrl) { try { return await call('ai/deep-insight', { question, materials }); } catch { /* 演示环境保留本地回退 */ } } return { id: crypto.randomUUID(), kind: 'dilemma', status: 'pending', sourceIds: materials.slice(0, 3).map((m) => m.id), title: '从原生家庭视角的一种可能理解', body: `关于“${question}”，目前材料提示：你可能很早学会先关注他人的期待与情绪。这不是定论；请根据自己的真实经验核对它是否成立。` }; },
   async parentPortrait(personId: PersonId, materials: Material[]) {
-    if (!baseUrl) return localPortraitFallback(materials);
+    if (!baseUrl) return null;
     try {
       const result = await call<{ sections?: Record<string, string> }>('ai/parent-portrait', { personId, materials });
-      return Object.keys(result.sections || {}).length ? result : localPortraitFallback(materials);
-    } catch { return localPortraitFallback(materials); }
+      return Object.keys(result.sections || {}).length ? result : null;
+    } catch { return null; }
   },
   async systemHypothesis(materials: Material[]): Promise<Insight> { if (baseUrl) { try { return await call('ai/system-hypothesis', { materials }); } catch { /* 演示环境保留本地回退 */ } } return { id: crypto.randomUUID(), kind: 'hypothesis', status: 'pending', sourceIds: materials.slice(0, 3).map((m) => m.id), title: '一条待验证的影响链', body: '家庭中关于责任、期待与情绪表达的方式，可能让你更早学会关注他人的需要。这只是一个等待你核对的理解。' }; },
   async innerChat(role: string, message: string, materials: Material[]) { if (baseUrl) { try { return await call<{ reply: string }>('ai/inner-chat', { role, message, materials: materials.slice(0, 8) }); } catch { /* 演示环境保留本地回退 */ } } return { reply: '我在这里。我们不急着给出答案，可以先看见此刻真正的感受和需要。' }; }
