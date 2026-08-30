@@ -1,5 +1,5 @@
 import type { Insight, JourneyData, Material, PersonId } from '../types';
-import { cloudbaseAuth, cloudbaseConfigured } from './cloudbase';
+import { cloudbaseAuth } from './cloudbase';
 const KEY = 'root-journey-demo-v1';
 const baseUrl = import.meta.env.VITE_CLOUDBASE_FUNCTION_URL as string | undefined;
 const demo = import.meta.env.VITE_DEMO_MODE !== 'false';
@@ -18,7 +18,7 @@ let verificationInfo: { verification_id: string; is_user: boolean } | undefined;
 let verifiedPhone = '';
 const labelsForPerson = (personId: PersonId) => personId === 'mother' ? '母亲' : '父亲';
 const normalizePhone = (phone: string) => phone.startsWith('+86') ? phone : `+86 ${phone.replace(/\D/g, '')}`;
-async function call<T>(path: string, payload: unknown): Promise<T> { if (!cloudbaseConfigured || !baseUrl) throw new Error('CloudBase 服务尚未配置'); const res = await fetch(`${baseUrl}/${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); if (!res.ok) throw new Error('服务暂时不可用'); return res.json() as Promise<T>; }
+async function call<T>(path: string, payload: unknown): Promise<T> { if (!baseUrl) throw new Error('CloudBase 服务尚未配置'); const res = await fetch(`${baseUrl}/${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); if (!res.ok) throw new Error('服务暂时不可用'); return res.json() as Promise<T>; }
 export const api = {
   async sendCode(phone: string) { if (demo) return; if (cloudbaseAuth) { verifiedPhone = normalizePhone(phone); verificationInfo = await cloudbaseAuth.getVerification({ phone_number: verifiedPhone }); return; } if (!baseUrl) return; await call('auth/send-code', { phone }); },
   async verifyCode(phone: string, code: string) { if (demo) { if (code !== '123456') throw new Error('演示环境验证码为 123456'); return { token: 'demo', phone }; } if (cloudbaseAuth) { if (!verificationInfo) throw new Error('请先获取验证码'); const normalized = normalizePhone(phone); if (normalized !== verifiedPhone) throw new Error('手机号已变更，请重新获取验证码'); await cloudbaseAuth.signInWithSms({ verificationInfo, verificationCode: code, phoneNum: normalized }); return { token: (await cloudbaseAuth.getAccessToken()).accessToken, phone: normalized }; } return call<{ token: string; phone: string }>('auth/verify-code', { phone, code }); },

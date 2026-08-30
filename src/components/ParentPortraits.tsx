@@ -10,7 +10,7 @@ function hasUsableSections(value: Insight | undefined) {
   return Boolean(value?.portraitSections && Object.values(value.portraitSections).some((item) => item.trim().length >= 8 && !invalidPortraitText.test(item)));
 }
 
-export function ParentPortraits({ data, persist, toast }: { data: JourneyData; persist: (next: JourneyData) => Promise<void>; toast: (message: string) => void }) {
+export function ParentPortraits({ data, persist }: { data: JourneyData; persist: (next: JourneyData) => Promise<void> }) {
   const [personId, setPersonId] = useState<PersonId>('mother');
   const [generating, setGenerating] = useState(false);
   const attemptedKeys = useRef(new Set<string>());
@@ -26,10 +26,7 @@ export function ParentPortraits({ data, persist, toast }: { data: JourneyData; p
     try {
       const output = await api.parentPortrait(personId, materials);
       const sections = Object.fromEntries(Object.entries(output?.sections || {}).filter(([topic, text]) => topics.includes(topic) && typeof text === 'string' && text.trim().length >= 8 && text.trim().length <= 180 && !invalidPortraitText.test(text)));
-      if (!Object.keys(sections).length) {
-        toast('DeepSeek 暂时没有返回可用分析，已保留材料；刷新后会自动重试。');
-        return;
-      }
+      if (!Object.keys(sections).length) return;
       const next: Insight = {
         id: crypto.randomUUID(), kind: 'portrait', status: 'confirmed', title: `${labels[personId]} · 内在${labels[personId]}画像`,
         body: '基于已录入材料形成的动态画像。', portraitSections: sections,
@@ -61,6 +58,6 @@ export function ParentPortraits({ data, persist, toast }: { data: JourneyData; p
       <p className="portrait-note">以下是 DeepSeek 基于已录入经历形成的画像结论；没有材料支持的维度会保留为空白。</p>
       <div className="portrait-dimensions">{topics.map((title) => { const text = portrait.portraitSections?.[title]; return <article key={title} className={text ? '' : 'insufficient'}><b>{title}</b><p>{text || '暂无足够材料形成这项理解。'}</p></article>; })}</div>
       <details><summary>查看形成这版画像的原始材料</summary>{materials.filter((item) => portrait.sourceIds.includes(item.id)).map((item) => <p key={item.id}>· {item.text}</p>)}</details>
-    </section> : <section className="portrait-empty"><h2>{generating ? 'DeepSeek 正在分析内在角色…' : '内在角色正在形成'}</h2><p>{materials.length ? '系统会基于这些材料生成具体的画像结论；不会用原文改写或泛化模板代替分析。' : `关于${labels[personId]}的资料还不够，先写下一段真实经历吧。`}</p></section>}
+    </section> : <section className="portrait-empty"><h2>内在角色正在形成</h2><p>{materials.length ? '新的经历正在被整理为画像理解。' : `关于${labels[personId]}的资料还不够，先写下一段真实经历吧。`}</p></section>}
   </div>;
 }
