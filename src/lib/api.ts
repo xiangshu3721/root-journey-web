@@ -67,6 +67,10 @@ export const api = {
   },
   async summarize(personId: PersonId, section: string, material: Material): Promise<Insight> { if (baseUrl) { try { return await call('ai/cheap-summary', { personId, section, material }); } catch { /* 演示环境保留本地回退 */ } } return { id: crypto.randomUUID(), kind: 'summary', status: 'pending', sourceIds: [material.id], title: '一段待你确认的理解', body: `从这段关于${personId === 'father' ? '父亲' : personId === 'mother' ? '母亲' : '自己'}的材料里，我暂时看到一种为了适应环境而形成的方式。它值得继续被补充和核对，而不是被匆忙定义。` }; },
   async deepInsight(question: string, materials: Material[]): Promise<Insight> { if (baseUrl) { try { return await call('ai/deep-insight', { question, materials }); } catch { /* 演示环境保留本地回退 */ } } return { id: crypto.randomUUID(), kind: 'dilemma', status: 'pending', sourceIds: materials.slice(0, 3).map((m) => m.id), title: '从原生家庭视角的一种可能理解', body: `关于“${question}”，目前材料提示：你可能很早学会先关注他人的期待与情绪。这不是定论；请根据自己的真实经验核对它是否成立。` }; },
+  async parentPortrait(personId: PersonId, materials: Material[]) {
+    if (!baseUrl) return null;
+    try { return await call<{ sections?: Record<string, string> }>('ai/parent-portrait', { personId, materials }); } catch { return null; }
+  },
   async systemHypothesis(materials: Material[]): Promise<Insight> { if (baseUrl) { try { return await call('ai/system-hypothesis', { materials }); } catch { /* 演示环境保留本地回退 */ } } return { id: crypto.randomUUID(), kind: 'hypothesis', status: 'pending', sourceIds: materials.slice(0, 3).map((m) => m.id), title: '一条待验证的影响链', body: '家庭中关于责任、期待与情绪表达的方式，可能让你更早学会关注他人的需要。这只是一个等待你核对的理解。' }; },
   async innerChat(role: string, message: string, materials: Material[]) { if (baseUrl) { try { return await call<{ reply: string }>('ai/inner-chat', { role, message, materials: materials.slice(0, 8) }); } catch { /* 演示环境保留本地回退 */ } } return { reply: '我在这里。我们不急着给出答案，可以先看见此刻真正的感受和需要。' }; }
 };
