@@ -1,0 +1,29 @@
+.parent-archive .record-actions .voice-button{
+  width:44px;
+  height:44px;
+  padding:0;
+  border-radius:50%;
+  font-size:18px;
+  line-height:1;
+}
+
+.home-page .one-on-one.compact{
+  display:flex;
+  align-items:center;
+  gap:22px;
+  margin-top:36px;
+  padding:22px;
+  border-radius:13px;
+  background:#294838;
+  color:#fff;
+}
+.home-page .one-on-one.compact span{color:#c5dfc8;font-size:12px;font-weight:700;letter-spacing:.08em}
+.home-page .one-on-one.compact h2{margin:8px 0;color:#fff;font:400 23px/1.4 Georgia,"Songti SC",serif}
+.home-page .one-on-one.compact p{margin:0;color:#deeadf;font-size:14px;line-height:1.7}
+.home-page .one-on-one.compact img{width:112px;height:112px;object-fit:cover;background:#fff}
+
+@media(max-width:760px){
+  .home-page .one-on-one.compact{align-items:flex-start;gap:14px;padding:18px}
+  .home-page .one-on-one.compact h2{font-size:20px}
+  .home-page .one-on-one.compact img{width:88px;height:88px}
+}
