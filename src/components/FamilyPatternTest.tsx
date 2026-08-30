@@ -2,41 +2,52 @@ import { useMemo, useState } from 'react';
 import type { FamilyPatternAssessment } from '../types';
 
 export const patternDimensions = [
-  { name: '亲密距离失衡', note: '靠得太近、过度卷入，或彼此疏远、难以亲近的经验。', subtype: '偏向：融合 / 疏离 / 两者并存' },
-  { name: '自主边界受限', note: '个人选择、隐私和边界是否常被忽略或替代。' },
-  { name: '情感回应不足', note: '感受、害怕和需要是否曾被认真看见与回应。' },
-  { name: '沟通表达受限', note: '家庭中能否坦诚表达、倾听和讨论真实想法。' },
-  { name: '冲突不安全与三角化', note: '冲突是否容易变成回避、爆发，或让第三人卷入。' },
-  { name: '条件认可与羞耻压力', note: '认可是否常与成绩、表现、懂事或听话绑定。' },
-  { name: '角色倒置与过度责任', note: '是否很早开始照顾他人或承担超出年龄的责任。' },
-  { name: '家庭规则与适应失衡', note: '家庭规则是否过度僵化、混乱，或两者交替出现。', subtype: '偏向：僵化 / 混乱 / 两者并存' }
+  { name: '亲密距离', note: '家人之间是过度卷入，还是彼此疏远、难以靠近。', explanation: '你过去的家里，亲近和独处之间可能不太容易找到舒服的距离。', subtype: '可能呈现：偏黏、偏疏，或两种情况都有' },
+  { name: '个人边界', note: '我能否有自己的想法、选择、隐私和不同。', explanation: '父母可能比较容易参与甚至替你决定很多事情；按自己的方式生活时，也许会担心让他们失望。' },
+  { name: '情绪回应', note: '难过、害怕和委屈时，我的感受有没有被看见。', explanation: '你难过、委屈或害怕时，家里可能更习惯让你坚强、讲道理，停下来理解感受的时候相对少一些。' },
+  { name: '沟通方式', note: '家里的人能不能把真实想法直接说出来。', explanation: '家里有些情绪和重要的事可能不容易被直接说开，你也许曾习惯先观察气氛再表达。' },
+  { name: '冲突安全', note: '家里发生矛盾时，我会不会紧张、害怕或被卷入。', explanation: '面对家里的冲突，你可能需要时刻留意气氛，并用安静、躲开或调和来保护自己。' },
+  { name: '认可方式', note: '是否只有表现好、懂事或成功，才更容易被认可。', explanation: '被肯定可能常和表现、听话或不让人失望联系在一起；这不代表你不够好，只是一种曾经熟悉的关系经验。' },
+  { name: '责任角色', note: '我是否很早就开始懂事、替大人操心。', explanation: '你可能比较早学会了少添麻烦、照顾他人或压下自己的需要，久而久之很会照顾别人，却不一定习惯先照顾自己。' },
+  { name: '家庭秩序', note: '家里的规矩是太死，还是太乱。', explanation: '家里的规则可能不太容易商量，或常常变化、缺少清晰分工，让你需要不断猜测该怎么做。', subtype: '可能呈现：偏严格、偏混乱，或两种情况都有' }
 ];
-const questions = patternDimensions.flatMap((dimension) => [
-  `回想 6～18 岁：${dimension.name}在家里常常让我感到不自在。`,
-  `回想 6～18 岁：我需要调整自己来适应与${dimension.name}有关的家庭氛围。`,
-  `回想 6～18 岁：这类经验会影响我表达需要、做决定或与人相处。`,
-  `回想 6～18 岁：即使没有发生特别严重的事，这种体验也长期存在。`
-].map((text) => ({ text, dimension: dimension.name })));
-const options = ['非常不符合', '比较不符合', '一般 / 说不清', '比较符合', '非常符合'];
-const score = (answers: Array<number | null>) => patternDimensions.map((_, index) => { const values = answers.slice(index * 4, index * 4 + 4).filter((value): value is number => typeof value === 'number'); return values.length ? Math.round(((values.reduce((sum, value) => sum + value, 0) / values.length - 1) / 4) * 100) : 0; });
+
+const questionGroups = [
+  ['家里的人会管彼此很多事情，让人很难真正有自己的空间。', '当我想自己做决定、安排自己的生活时，家里人容易觉得我跟他们生分了。', '我遇到难过或者很重要的事情时，家里人很少真正坐下来关心我发生了什么。', '即使一家人住在一起，我们很多时候也像各过各的，很少真正聊心里的事情。'],
+  ['很多本来应该由我自己决定的事情，父母会直接替我做主。', '如果我没有按照父母的想法来，容易被说“不懂事”“不听话”或者“让人失望”。', '父母比较容易过问我的隐私、朋友、恋爱、工作或者花钱方式。', '即使父母不同意，我通常也可以表达自己的想法，并做适合自己的选择。'],
+  ['我难过的时候，家里有人愿意先听我把话说完，而不是马上教育我。', '我哭、生气或者害怕时，经常听到“别想太多”“这有什么”“有什么好哭的”之类的话。', '当我说自己很委屈、很难受时，容易被认为是矫情、脆弱或者不懂事。', '我的感受在家里通常会被认真对待。'],
+  ['家里有事情通常可以直接说出来，不需要一直猜别人脸色。', '家里有人不高兴时，经常不会直接说，而是冷着、憋着、阴阳怪气，或者等别人自己猜。', '我过去经常要先看看大人的脸色，再决定自己能不能说话、应该说什么。', '家里很多重要的事情很难真正说开，最后常常变成沉默、误会或者不了了之。'],
+  ['家里一吵架，我会担心事情越来越严重，甚至失控。', '父母或者家里人发生矛盾时，我经常被拉去劝架、传话、站队或者安慰其中一个人。', '家里发生争执以后，通常能够把事情说开，不会长时间冷战或者反复翻旧账。', '只要感觉家里气氛不对，我就会下意识紧张、安静下来或者躲开。'],
+  ['我表现好、成绩好、听话或者让父母有面子的时候，更容易得到肯定。', '如果我失败、犯错或者没有达到父母期待，我会明显感觉自己让他们失望了。', '家里经常拿我和别人家的孩子、兄弟姐妹或者同龄人比较。', '即使我表现普通、失败或者没有达到期待，我依然能够感受到家里对我的接纳。'],
+  ['我过去经常觉得自己不能给家里添麻烦，要懂事一点。', '父母情绪不好时，我会想办法安慰他们、顺着他们，或者让家里的气氛赶快好起来。', '我很早就开始操心很多本来应该由大人处理的事情。', '我过去大多数时候可以安心做一个孩子，不需要经常操心大人的情绪和问题。'],
+  ['家里的很多规矩比较死，经常是“大人说了算”，很难商量。', '家里遇到新的情况时比较难调整，经常觉得“以前就是这样”“就应该这样”。', '家里的规则有时候变化很大，今天可以、明天又不可以，让我很难知道到底应该怎么做。', '家里一遇到事情，经常没人说得清到底谁负责、接下来怎么办，很容易变得乱成一团。']
+];
+const reverseQuestions = new Set([7, 8, 11, 12, 18, 23, 27]);
+const questions = questionGroups.flatMap((items, dimensionIndex) => items.map((text, index) => ({ text, dimension: patternDimensions[dimensionIndex].name, reverse: reverseQuestions.has(dimensionIndex * 4 + index) })));
+const options = ['几乎没有', '偶尔会这样', '有时候会这样', '经常这样', '大多数时候都这样'];
+const score = (answers: Array<number | null>) => patternDimensions.map((_, index) => {
+  const values = answers.slice(index * 4, index * 4 + 4).map((value, offset) => value === null ? null : (reverseQuestions.has(index * 4 + offset) ? 6 - value : value)).filter((value): value is number => typeof value === 'number');
+  return values.length ? Math.round(((values.reduce((sum, value) => sum + value, 0) / values.length - 1) / 4) * 100) : 0;
+});
 const level = (value: number) => value >= 70 ? '值得优先探索' : value >= 45 ? '可以继续留意' : '目前较轻';
 
-export function FamilyPatternTest({ assessment, onComplete, loggedIn = true, onSave }: { assessment?: FamilyPatternAssessment; onComplete?: (next: FamilyPatternAssessment) => void; loggedIn?: boolean; onSave?: () => void }) {
+export function FamilyPatternTest({ assessment, onComplete, onUpdate, loggedIn = true, onSave }: { assessment?: FamilyPatternAssessment; onComplete?: (next: FamilyPatternAssessment) => void; onUpdate?: (next: FamilyPatternAssessment) => void; loggedIn?: boolean; onSave?: () => void }) {
   const [mode, setMode] = useState<'intro' | 'test' | 'result'>(assessment ? 'result' : 'intro');
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(0); const [completed, setCompleted] = useState<FamilyPatternAssessment | undefined>();
   const [answers, setAnswers] = useState<Array<number | null>>(assessment?.answers || Array(32).fill(null));
-  const result = assessment || (mode === 'result' ? { answers, scores: score(answers), completedAt: new Date().toISOString() } : undefined);
+  const result = completed || assessment || (mode === 'result' ? { answers, scores: score(answers), completedAt: new Date().toISOString() } : undefined);
   const current = questions[step];
   const ranked = useMemo(() => result?.scores.map((value, index) => ({ ...patternDimensions[index], score: value })).sort((a, b) => b.score - a.score) || [], [result]);
-  function finish() { const next = { answers, scores: score(answers), completedAt: new Date().toISOString() }; onComplete?.(next); setMode('result'); }
-  if (mode === 'intro') return <section className="assessment-intro"><span>原生家庭关系模式探索测试</span><h1>用 32 个问题，<br />看见家庭留下的关系线索。</h1><p>请回想大约 6～18 岁、与父母共同生活的大部分时间，并按长期、整体的真实体验作答，而不是只根据某一次特别好的或糟糕的事件。</p><small>完成后可直接查看八维关系模式画像。登录后可以保存结果，并继续探索父母画像、家庭影响链与时空洞察。</small><button className="primary" onClick={() => setMode('test')}>开始测试（约 6–8 分钟）<b>→</b></button></section>;
-  if (mode === 'test') return <section className="assessment-flow"><header><span>原生家庭关系模式测试 · {step + 1} / 32</span><button className="text-button" onClick={() => setMode('intro')}>暂时退出</button></header><div className="test-progress"><i style={{ width: `${((step + 1) / 32) * 100}%` }} /></div><p>{current.dimension}</p><h2>{current.text}</h2><div className="answer-list">{options.map((option, index) => <button key={option} className={answers[step] === index + 1 ? 'selected' : ''} onClick={() => setAnswers((old) => old.map((value, itemIndex) => itemIndex === step ? index + 1 : value))}><b>{index + 1}</b>{option}</button>)}<button className={answers[step] === null ? 'selected muted' : 'muted'} onClick={() => setAnswers((old) => old.map((value, itemIndex) => itemIndex === step ? null : value))}>记不清 / 不适用</button></div><div className="test-actions"><button className="text-button" disabled={step === 0} onClick={() => setStep((value) => value - 1)}>上一题</button>{step === 31 ? <button className="primary" onClick={finish}>查看我的结果 <b>→</b></button> : <button className="primary" onClick={() => setStep((value) => value + 1)}>下一题 <b>→</b></button>}</div></section>;
-  return <AssessmentResult assessment={result!} ranked={ranked} loggedIn={loggedIn} onSave={onSave} onRestart={() => { setStep(0); setAnswers(Array(32).fill(null)); setMode('test'); }} />;
+  function finish() { const next = { answers, scores: score(answers), completedAt: new Date().toISOString() }; setCompleted(next); onComplete?.(next); setMode('result'); }
+  if (mode === 'intro') return <section className="assessment-intro"><span>原生家庭关系模式探索测试</span><h1>用 32 个日常问题，<br />看见家庭关系留下的线索。</h1><p>请根据过去和父母，或主要照顾你的人长期相处的真实经历作答。不要只想某一件特别好或糟的事；如果不同阶段差别很大，可以按持续更久、影响更深的经历回答。</p><small>若主要由祖辈或其他亲人照顾，可把题目中的“父母 / 家里人”理解成当时主要照顾和影响你的人。本测试用于自我探索和理解，不是医学、心理疾病诊断或临床量表。</small><button className="primary" onClick={() => setMode('test')}>开始测试（约 6–8 分钟）<b>→</b></button></section>;
+  if (mode === 'test') return <section className="assessment-flow"><header><span>原生家庭关系模式探索测试 · {step + 1} / 32</span><button className="text-button" onClick={() => setMode(result ? 'result' : 'intro')}>暂时退出</button></header><div className="test-progress"><i style={{ width: `${((step + 1) / 32) * 100}%` }} /></div><p>{current.dimension}</p><h2>{current.text}</h2><div className="answer-list">{options.map((option, index) => <button key={option} className={answers[step] === index + 1 ? 'selected' : ''} onClick={() => setAnswers((old) => old.map((value, itemIndex) => itemIndex === step ? index + 1 : value))}><b>{index + 1}</b>{option}</button>)}<button className={answers[step] === null ? 'selected muted' : 'muted'} onClick={() => setAnswers((old) => old.map((value, itemIndex) => itemIndex === step ? null : value))}>记不清 / 不适用</button></div><div className="test-actions"><button className="text-button" disabled={step === 0} onClick={() => setStep((value) => value - 1)}>上一题</button>{step === 31 ? <button className="primary" onClick={finish}>查看我的结果 <b>→</b></button> : <button className="primary" onClick={() => setStep((value) => value + 1)}>下一题 <b>→</b></button>}</div></section>;
+  return <AssessmentResult assessment={result!} ranked={ranked} loggedIn={loggedIn} onSave={onSave} onUpdate={onUpdate} onRestart={() => { setStep(0); setAnswers(Array(32).fill(null)); setCompleted(undefined); setMode('test'); }} />;
 }
 
-export function AssessmentResult({ assessment, ranked, loggedIn, onSave, onRestart }: { assessment: FamilyPatternAssessment; ranked?: Array<(typeof patternDimensions)[number] & { score: number }>; loggedIn?: boolean; onSave?: () => void; onRestart?: () => void }) {
+export function AssessmentResult({ assessment, ranked, loggedIn, onSave, onUpdate, onRestart }: { assessment: FamilyPatternAssessment; ranked?: Array<(typeof patternDimensions)[number] & { score: number }>; loggedIn?: boolean; onSave?: () => void; onUpdate?: (next: FamilyPatternAssessment) => void; onRestart?: () => void }) {
   const values = ranked || assessment.scores.map((value, index) => ({ ...patternDimensions[index], score: value })).sort((a, b) => b.score - a.score);
-  return <section className="assessment-result"><div className="result-head"><div><span>{loggedIn ? '原生家庭测试完整结果' : '你的基础测试结果'}</span><h1>你的原生家庭<br />关系模式画像</h1><p>分数越接近外圈，代表这类成长体验可能越明显；它不是对你或家庭的好坏判断。</p></div>{onRestart && <button className="text-button" onClick={onRestart}>重新作答</button>}</div><div className="assessment-radar-layout"><Radar scores={assessment.scores} /><div><span>最突出的模式</span>{values.slice(0, 3).map((item) => <article className="top-pattern" key={item.name}><b>{item.name}<em>{item.score}/100</em></b><p>{item.note}</p>{item.subtype && <small>{item.subtype}</small>}</article>)}</div></div><p className="assessment-summary">从目前的作答看，你的成长体验里，{values.slice(0, 2).map((item) => item.name).join('与')}可能是更值得慢慢理解的线索。它们不定义你，也不替你解释全部人生；接下来可以通过真实故事，看看这些体验如何形成与延续。</p><div className="assessment-scores">{assessment.scores.map((value, index) => <article key={patternDimensions[index].name}><b>{patternDimensions[index].name}</b><strong>{value}</strong><i><span style={{ width: `${value}%` }} /></i><small>{level(value)}</small></article>)}</div>{loggedIn ? <div className="result-next"><b>下一步，可以从父母的真实故事里理解这些模式是怎样形成的。</b></div> : <div className="result-gate"><h2>你已经看见了“现象”。</h2><p>保存这份结果，并继续了解：为什么这些模式会形成，以及它们可能如何影响今天的你。</p><button className="primary" onClick={onSave}>保存结果，继续寻根 <b>→</b></button></div>}</section>;
+  const top = values.slice(0, 3);
+  return <section className="assessment-result"><div className="result-head"><div><span>{loggedIn ? '原生家庭关系模式测试' : '你的原生家庭关系模式测试结果'}</span><h1>你的原生家庭<br />关系模式画像</h1><p>分数越接近外圈，代表这类成长体验可能越明显；它不是对你或家庭的好坏判断。</p></div>{onRestart && <button className="text-button" onClick={onRestart}>重新测试</button>}</div><div className="assessment-radar-layout"><Radar scores={assessment.scores} /><div><span>最值得留意的线索</span>{top.map((item) => <article className="top-pattern" key={item.name}><b>{item.name}<em>{item.score}/100</em></b><p>{item.explanation}</p>{item.subtype && <small>{item.subtype}</small>}</article>)}</div></div><p className="assessment-summary">从目前的作答看，{top.slice(0, 2).map((item) => item.name).join('与')}可能是更值得慢慢理解的线索。它们不定义你，也不替你解释全部人生；接下来可以通过真实故事，看看这些体验如何形成与延续。</p><div className="assessment-scores">{assessment.scores.map((value, index) => <article key={patternDimensions[index].name}><b>{patternDimensions[index].name}</b><strong>{value}</strong><i><span style={{ width: `${value}%` }} /></i><small>{patternDimensions[index].explanation}</small></article>)}</div><section className="assessment-attribution"><b>回想这些经历，你觉得它更多来自谁？</b><p>这不是为了给父母贴标签，只是帮助系统知道下一步优先探索哪里。</p>{top.map((item) => <label key={item.name}><span>{item.name}</span><select value={assessment.attributions?.[item.name] || ''} onChange={(event) => onUpdate?.({ ...assessment, attributions: { ...assessment.attributions, [item.name]: event.target.value } })}><option value="">现在还说不清</option><option>爸爸更多一些</option><option>妈妈更多一些</option><option>两个人都有</option><option>更像整个家的相处方式</option></select></label>)}</section>{loggedIn ? <div className="result-next"><b>下一步，可以从父母的真实故事里理解这些模式是怎样形成的。</b></div> : <div className="result-gate"><h2>你已经看见了“现象”。</h2><p>保存这份结果，并继续了解：为什么这些模式会形成，以及它们可能如何影响今天的你。</p><button className="primary" onClick={onSave}>保存结果，继续寻根 <b>→</b></button></div>}</section>;
 }
 
 export function Radar({ scores }: { scores: number[] }) { const center = 145; const radius = 94; const point = (index: number, value: number) => { const angle = -Math.PI / 2 + index * Math.PI / 4; return `${center + Math.cos(angle) * radius * value},${center + Math.sin(angle) * radius * value}`; }; const polygon = (value: number) => scores.map((_, index) => point(index, value)).join(' '); const values = scores.map((value, index) => point(index, value / 100)).join(' '); return <div className="radar radar-eight"><svg viewBox="0 0 290 290" role="img" aria-label="八维原生家庭关系模式雷达图">{[.25, .5, .75, 1].map((value) => <polygon key={value} points={polygon(value)} className="radar-grid" />)}{scores.map((_, index) => { const [x, y] = point(index, 1).split(','); return <line key={index} x1={center} y1={center} x2={x} y2={y} className="radar-axis" />; })}<polygon points={values} className="radar-shape" />{scores.map((value, index) => { const [x, y] = point(index, value / 100).split(','); return <circle key={index} cx={x} cy={y} r="3.8" className="radar-point" />; })}</svg>{patternDimensions.map((dimension, index) => { const [x, y] = point(index, 1.26).split(','); return <span key={dimension.name} style={{ left: `${Number(x) / 2.9}%`, top: `${Number(y) / 2.9}%` }}>{dimension.name}<b>{scores[index]}</b></span>; })}</div>; }
