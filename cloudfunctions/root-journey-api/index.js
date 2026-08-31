@@ -11,7 +11,7 @@ const send = (res, status, payload) => {
 };
 const bodyOf = (req) => new Promise((resolve, reject) => { let raw = ''; req.on('data', (chunk) => { raw += chunk; }); req.on('end', () => { try { resolve(raw ? JSON.parse(raw) : {}); } catch { reject(new Error('请求数据不是有效 JSON')); } }); req.on('error', reject); });
 const instruction = (task, payload) => `你是“寻根之旅·原生家庭考古”的 AI 生命档案师。只基于用户给出的材料提出可验证、待用户确认的理解；不诊断人格，不替人下结论，不许诺疗愈效果。表达温和、具体、简洁。任务：${task}\n材料：${JSON.stringify(payload)}`;
-const portraitTopics = ['人生背景', '成长经历与关键事件', '未完成的人生', '性格与处事方式', '核心价值观', '最看重什么', '最害怕什么', '内在最深的需要', '爱的表达', '情绪表达', '沟通与冲突', '边界与控制', '对家庭的理解', '对孩子的期待', 'TA 如何看待我', 'TA 留给我的东西'];
+const portraitTopics = ['人生背景', '成长经历与关键事件', '未完成的人生', '性格与处事方式', '核心价值观', '最看重什么', '最害怕什么', '内在最深的需要', '爱的表达', '情绪表达', '沟通与冲突', '边界与控制', '家庭 / 婚姻观与东方家庭文化影响', 'TA 对孩子的期待', 'TA 如何看待我', 'TA 对我的影响'];
 const portraitExtras = ['TA 常说的话', 'TA 身上的矛盾', '是什么塑造了 TA'];
 const isSafePortraitText = (value) => typeof value === 'string' && value.trim().length >= 8 && value.trim().length <= 180 && !/(请基于|任务[:：]|材料[:：]|输出|生成结构化|覆盖[:：]|维度可能呈现|不诊断|不下定论|当前材料提示|等待用户核对|材料未提及|未提供|信息不足|材料仅显示|材料显示|从材料看|从这些记录看|从你记录|偏执型人格|人格障碍|精神状态不佳|死本能|病态|未能如愿|未能实现|未被明确提及|未明确提及|是否实现)/.test(value);
 const isSafeDynamicInsight = (value) => typeof value === 'string' && value.trim().length >= 18 && value.trim().length <= 150 && !/(请基于|任务[:：]|材料[:：]|输出|生成结构化|不诊断|不下定论|等待用户核对|当前材料提示|从这段关于|暂时看到一种为了适应环境|值得继续被补充和核对|不是被匆忙定义|这只是一个等待你核对)/.test(value);
@@ -22,7 +22,7 @@ async function askModel(task, payload) {
   const key = process.env.DEEPSEEK_API_KEY;
   const model = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
   if (!key) throw new Error('DeepSeek 尚未配置：请在云函数环境变量添加 DEEPSEEK_API_KEY');
-  const response = await fetch(url, { method: 'POST', headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' }, body: JSON.stringify({ model, temperature: 0.7, messages: [{ role: 'user', content: instruction(task, payload) }] }) });
+  const response = await fetch(url, { method: 'POST', headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' }, body: JSON.stringify({ model, temperature: 0.35, messages: [{ role: 'user', content: instruction(task, payload) }] }) });
   if (!response.ok) throw new Error('模型服务暂时不可用');
   const result = await response.json();
   return result.choices?.[0]?.message?.content || '暂时无法生成内容，请稍后再试。';
@@ -75,7 +75,20 @@ const server = http.createServer(async (req, res) => {
     }
     if (path.endsWith('/ai/system-hypothesis')) return send(res, 200, { id: randomUUID(), kind: 'hypothesis', status: 'pending', title: '一条待验证的影响链', body: '', sourceIds: (body.materials || []).slice(0, 8).map((item) => item.id) });
     if (path.endsWith('/ai/inner-chat')) return send(res, 200, { reply: await askModel('以“内在角色”的温和陪伴口吻回应用户。不要模仿现实父母，不要做诊断；不超过 120 字，先回应感受再邀请觉察。', body) });
-    if (path.endsWith('/ai/deep-insight')) return send(res, 200, { id: randomUUID(), kind: 'dilemma', status: 'pending', title: '从原生家庭视角的一种可能理解', body: await askModel('针对当前困惑生成可追溯洞见；不超过 240 字，并明确这不是定论。', body), sourceIds: (body.materials || []).slice(0, 8).map((item) => item.id) });
+    if (path.endsWith('/ai/deep-insight')) {
+      const task = `针对用户的当前困惑，给出一次性、个性化的原生家庭视角洞察。只使用请求中的测试结果与父母材料；绝不杜撰父母的经历或把所有问题归因于原生家庭。用自然、温和、像在真正理解用户的中文，不要输出任务说明或心理学术语。
+输出按以下 6 段组织，用短标题和换行：
+1. 你现在真正卡在哪里（先直接回应问题）
+2. 从你的家庭材料里，我看到了什么（只选相关材料）
+3. 过去和现在可能怎样连起来（用清晰的“过去→现在”路径）
+4. 一个不一样的角度（避免重复“原生家庭影响了你”）
+5. 过去和现在有什么不同（承认当下现实也在参与）
+6. 可以继续观察什么（给一个具体问题）
+若父母材料很少，仍回答当前困惑，但必须说明“基于目前材料，这只是一个可能方向”，并在最后给 1 至 2 个可选补充方向。不能编造用户童年发生过的细节、父母的动机、用户当下关系或身边人的反应；“过去和现在有什么不同”只能写成用户现在拥有更多选择/可以重新观察，不可断言现实已经改善。禁止诊断、归罪、人格标签与医疗建议。不要使用 Markdown 标记。总字数 260 至 520 字。`;
+      const materials = body.materials || [];
+      const insight = (await askModel(task, { question: body.question, assessment: body.assessment, materials })).replace(/\*\*/g, '');
+      return send(res, 200, { id: randomUUID(), kind: 'dilemma', status: 'confirmed', title: '从原生家庭视角的一次理解', body: insight, sourceIds: materials.slice(0, 10).map((item) => item.id) });
+    }
     if (path.endsWith('/ai/parent-portrait')) {
       const person = body.personId === 'father' ? '父亲' : '母亲';
       const task = `仅根据已分层材料，整理${person}的“内在${person}画像”。必须只返回 JSON 对象，不能使用 Markdown，格式为：{"summary":"一句话人物画像","sections":{"${portraitTopics[0]}":"..."},"extras":{"TA 常说的话":"..."}}。sections 的键必须且只能来自：${portraitTopics.map((topic) => `“${topic}”`).join('、')}；extras 的键只能来自：${portraitExtras.map((topic) => `“${topic}”`).join('、')}。每个值为 8 至 120 字的具体理解，必须能被材料支持；没有可靠材料的键填空字符串 ""。
