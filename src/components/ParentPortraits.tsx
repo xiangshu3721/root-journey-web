@@ -12,34 +12,45 @@ function hasUsableSections(value: Insight | undefined) {
 
 export function ParentPortraits({ data, persist }: { data: JourneyData; persist: (next: JourneyData) => Promise<void> }) {
   const [personId, setPersonId] = useState<PersonId>('mother');
-  const [generating, setGenerating] = useState(false);
-  const attemptedKeys = useRef(new Set<string>());
+  const [generationTick, setGenerationTick] = useState(0);
+  const inFlight = useRef(new Set<string>());
+  const retries = useRef(new Map<string, number>());
   const roleId = personId === 'father' ? 'innerFather' : 'innerMother';
   const role = data.innerRoles.find((item) => item.id === roleId)!;
   const materials = data.materials.filter((item) => item.personId === personId);
   const portrait = useMemo(() => data.insights.find((item) => item.kind === 'portrait' && item.title.startsWith(`${labels[personId]} ·`) && hasUsableSections(item)), [data.insights, personId]);
   const materialKey = `${personId}:${materials.map((item) => item.id).sort().join('|')}`;
+  const feedback = useMemo(() => data.insights.filter((item) => item.kind === 'hypothesis' && item.status !== 'pending' && item.sourceIds.some((sourceId) => materials.some((material) => material.id === sourceId))), [data.insights, materials]);
+  const feedbackKey = feedback.map((item) => `${item.id}:${item.status}`).sort().join('|');
 
   async function generate() {
-    if (!materials.length || generating) return;
-    setGenerating(true);
+    if (!materials.length || inFlight.current.has(materialKey)) return;
+    inFlight.current.add(materialKey);
     try {
-      const output = await api.parentPortrait(personId, materials);
+      const output = await api.parentPortrait(personId, materials, feedback);
       const sections = Object.fromEntries(Object.entries(output?.sections || {}).filter(([topic, text]) => topics.includes(topic) && typeof text === 'string' && text.trim().length >= 8 && text.trim().length <= 180 && !invalidPortraitText.test(text)));
-      if (!Object.keys(sections).length) return;
+      if (!Object.keys(sections).length) {
+        const attempts = retries.current.get(materialKey) || 0;
+        if (attempts < 2) {
+          retries.current.set(materialKey, attempts + 1);
+          window.setTimeout(() => setGenerationTick((value) => value + 1), 900 * (attempts + 1));
+        }
+        return;
+      }
+      retries.current.delete(materialKey);
       const next: Insight = {
         id: crypto.randomUUID(), kind: 'portrait', status: 'confirmed', title: `${labels[personId]} · 内在${labels[personId]}画像`,
         body: '基于已录入材料形成的动态画像。', portraitSections: sections,
-        sourceIds: materials.map((item) => item.id), confidence: materials.length >= 6 ? '中' : '低'
+        sourceIds: materials.map((item) => item.id), materialSignature: `${materialKey}|${feedbackKey}`, confidence: materials.length >= 6 ? '中' : '低'
       };
       await persist({ ...data, insights: [next, ...data.insights.filter((item) => !(item.kind === 'portrait' && item.title.startsWith(`${labels[personId]} ·`)))] });
-    } finally { setGenerating(false); }
+    } finally { inFlight.current.delete(materialKey); }
   }
 
   useEffect(() => {
-    const needsRefresh = materials.length && (!portrait || materials.some((item) => !portrait.sourceIds.includes(item.id)));
-    if (needsRefresh && !attemptedKeys.current.has(materialKey)) { attemptedKeys.current.add(materialKey); void generate(); }
-  }, [materialKey, portrait, data.materials]);
+    const needsRefresh = materials.length && (!portrait || portrait.materialSignature !== `${materialKey}|${feedbackKey}`);
+    if (needsRefresh) void generate();
+  }, [materialKey, feedbackKey, portrait?.id, portrait?.materialSignature, generationTick]);
 
   function edit() {
     const name = prompt('角色称呼', role.name)?.trim();
@@ -55,9 +66,9 @@ export function ParentPortraits({ data, persist }: { data: JourneyData; persist:
     <section className="portrait-profile"><i>{role.avatar}</i><div><span>内在角色</span><h2>{role.name}</h2><p>材料基础：{materials.length} 条关于{labels[personId]}的原始记录</p></div><button className="text-button" onClick={edit}>修改头像与称呼</button></section>
     {portrait ? <section className="portrait-result">
       <span>动态画像 · 基于 {portrait.sourceIds.length} 条可追溯材料</span><h2>{portrait.title}</h2>
-      <p className="portrait-note">以下是 DeepSeek 基于已录入经历形成的画像结论；没有材料支持的维度会保留为空白。</p>
+      <p className="portrait-note">每一项都是依据已录入经历形成的当前理解；没有依据的部分会先留白。</p>
       <div className="portrait-dimensions">{topics.map((title) => { const text = portrait.portraitSections?.[title]; return <article key={title} className={text ? '' : 'insufficient'}><b>{title}</b><p>{text || '暂无足够材料形成这项理解。'}</p></article>; })}</div>
       <details><summary>查看形成这版画像的原始材料</summary>{materials.filter((item) => portrait.sourceIds.includes(item.id)).map((item) => <p key={item.id}>· {item.text}</p>)}</details>
-    </section> : <section className="portrait-empty"><h2>内在角色正在形成</h2><p>{materials.length ? '新的经历正在被整理为画像理解。' : `关于${labels[personId]}的资料还不够，先写下一段真实经历吧。`}</p></section>}
+    </section> : materials.length ? <section className="portrait-empty portrait-skeleton" aria-label="正在更新画像"><div /><div /><div /><div /></section> : <section className="portrait-empty"><h2>从一段真实故事开始</h2><p>关于{labels[personId]}的经历还没有被记录。写下一件你记得的事，画像会从那里慢慢变得清晰。</p></section>}
   </div>;
 }
