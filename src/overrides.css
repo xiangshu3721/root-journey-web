@@ -6,7 +6,7 @@
   font-size:18px;
   line-height:1;
 }
-.parent-archive .record-actions .recording-button{font-size:25px;filter:saturate(.7)}
+.parent-archive .record-actions .recording-button svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 
 .home-page .assessment-result h1{white-space:nowrap;font-size:clamp(29px,3.1vw,40px)}
 
