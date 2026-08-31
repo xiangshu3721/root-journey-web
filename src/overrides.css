@@ -6,6 +6,9 @@
   font-size:18px;
   line-height:1;
 }
+.parent-archive .record-actions .recording-button{font-size:25px;filter:saturate(.7)}
+
+.home-page .assessment-result h1{white-space:nowrap;font-size:clamp(29px,3.1vw,40px)}
 
 .home-page .one-on-one.compact{
   display:flex;
@@ -23,6 +26,7 @@
 .home-page .one-on-one.compact img{width:112px;height:112px;object-fit:cover;background:#fff}
 
 @media(max-width:760px){
+  .home-page .assessment-result h1{font-size:clamp(24px,7.8vw,29px)}
   .home-page .one-on-one.compact{align-items:flex-start;gap:14px;padding:18px}
   .home-page .one-on-one.compact h2{font-size:20px}
   .home-page .one-on-one.compact img{width:88px;height:88px}
