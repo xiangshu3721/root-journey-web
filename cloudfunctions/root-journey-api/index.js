@@ -11,8 +11,9 @@ const send = (res, status, payload) => {
 };
 const bodyOf = (req) => new Promise((resolve, reject) => { let raw = ''; req.on('data', (chunk) => { raw += chunk; }); req.on('end', () => { try { resolve(raw ? JSON.parse(raw) : {}); } catch { reject(new Error('请求数据不是有效 JSON')); } }); req.on('error', reject); });
 const instruction = (task, payload) => `你是“寻根之旅·原生家庭考古”的 AI 生命档案师。只基于用户给出的材料提出可验证、待用户确认的理解；不诊断人格，不替人下结论，不许诺疗愈效果。表达温和、具体、简洁。任务：${task}\n材料：${JSON.stringify(payload)}`;
-const portraitTopics = ['人生背景摘要', '成长经历', '性格倾向', '核心价值观', '最看重什么', '可能最害怕什么', '爱的表达方式', '愤怒表达方式', '冲突处理方式', '对家庭的理解', '对孩子的主要期待', '对我的主要态度', '常说的话 / 语言风格', '重要人生局限', '时代与家庭环境的影响'];
-const isSafePortraitText = (value) => typeof value === 'string' && value.trim().length >= 8 && value.trim().length <= 180 && !/(请基于|任务[:：]|材料[:：]|输出|生成结构化|覆盖[:：]|维度可能呈现|不诊断|不下定论|当前材料提示|等待用户核对|材料未提及|未提供|信息不足|材料仅显示|材料显示|从材料看|从这些记录看|从你记录|偏执型人格|人格障碍|精神状态不佳|死本能|病态)/.test(value);
+const portraitTopics = ['人生背景', '成长经历与关键事件', '未完成的人生', '性格与处事方式', '核心价值观', '最看重什么', '最害怕什么', '内在最深的需要', '爱的表达', '情绪表达', '沟通与冲突', '边界与控制', '对家庭的理解', '对孩子的期待', 'TA 如何看待我', 'TA 留给我的东西'];
+const portraitExtras = ['TA 常说的话', 'TA 身上的矛盾', '是什么塑造了 TA'];
+const isSafePortraitText = (value) => typeof value === 'string' && value.trim().length >= 8 && value.trim().length <= 180 && !/(请基于|任务[:：]|材料[:：]|输出|生成结构化|覆盖[:：]|维度可能呈现|不诊断|不下定论|当前材料提示|等待用户核对|材料未提及|未提供|信息不足|材料仅显示|材料显示|从材料看|从这些记录看|从你记录|偏执型人格|人格障碍|精神状态不佳|死本能|病态|未能如愿|未能实现|未被明确提及|未明确提及|是否实现)/.test(value);
 const isSafeDynamicInsight = (value) => typeof value === 'string' && value.trim().length >= 18 && value.trim().length <= 150 && !/(请基于|任务[:：]|材料[:：]|输出|生成结构化|不诊断|不下定论|等待用户核对|当前材料提示|从这段关于|暂时看到一种为了适应环境|值得继续被补充和核对|不是被匆忙定义|这只是一个等待你核对)/.test(value);
 const parseObject = (content) => { try { return JSON.parse((content.match(/\{[\s\S]*\}/) || [content])[0]); } catch { return {}; } };
 const cleanPortraitText = (value) => value.trim().replace(/^(?:从(?:这些)?(?:材料|记录)看|材料(?:仅)?显示)[，,:：\s]*/u, '').replace(/[，,]?\s*(?:具体职业与家庭结构|其他背景信息)未提及。?$/u, '').trim();
@@ -77,14 +78,17 @@ const server = http.createServer(async (req, res) => {
     if (path.endsWith('/ai/deep-insight')) return send(res, 200, { id: randomUUID(), kind: 'dilemma', status: 'pending', title: '从原生家庭视角的一种可能理解', body: await askModel('针对当前困惑生成可追溯洞见；不超过 240 字，并明确这不是定论。', body), sourceIds: (body.materials || []).slice(0, 8).map((item) => item.id) });
     if (path.endsWith('/ai/parent-portrait')) {
       const person = body.personId === 'father' ? '父亲' : '母亲';
-      const task = `仅根据已分层材料，整理${person}的“内在${person}画像”。必须只返回 JSON 对象，不能使用 Markdown，键必须且只能是：${portraitTopics.map((topic) => `“${topic}”`).join('、')}。每个值为 8 至 120 字的具体理解，必须能被材料支持；没有可靠材料的键填空字符串 ""。
+      const task = `仅根据已分层材料，整理${person}的“内在${person}画像”。必须只返回 JSON 对象，不能使用 Markdown，格式为：{"summary":"一句话人物画像","sections":{"${portraitTopics[0]}":"..."},"extras":{"TA 常说的话":"..."}}。sections 的键必须且只能来自：${portraitTopics.map((topic) => `“${topic}”`).join('、')}；extras 的键只能来自：${portraitExtras.map((topic) => `“${topic}”`).join('、')}。每个值为 8 至 120 字的具体理解，必须能被材料支持；没有可靠材料的键填空字符串 ""。
 材料中 evidenceType=fact 可用于描述明确写出的经历、行为或原话；experience 只能写成“用户感受到/经历到”；interpretation 可作为待核对的理解；hypothesis 不能当作事实、成因或诊断依据。
 严禁常识性补全：不能仅因“长女、有弟妹”就写照顾弟妹、做家务、被迫早熟；不能仅因学历或读书愿望就写失学原因、家庭条件、未能实现或人生遗憾；不能仅因善良、斗争、观察力就推断爱的表达、愤怒方式、对孩子期待或家庭价值观。没有明确行为或原话就留空。
-直接写画像结论，不要以“从材料看”“材料显示”“未提供”或“资料不足”开头，也不要描述你拿到了什么资料。禁止复述“偏执型人格、精神状态不佳、死本能”等诊断或病理化标签；不得因亲属地点、职业或身份而推断时代创伤或人格成因。禁止输出任务说明、材料说明、泛化套话、诊断或医疗判断。可以使用“可能”等克制措辞，但不要重复免责声明。`;
+summary 需是一句完整、有人味的画像，30 至 70 字；没有足够材料时 summary 填空字符串。不得把“想要、梦寐以求”改写为“未实现、未能如愿”，不得在 summary 中增加材料没有写出的因果。extras 是辅助信息，没有依据则填空字符串。直接写画像结论，不要以“从材料看”“材料显示”“未提供”或“资料不足”开头，也不要描述你拿到了什么资料。禁止复述“偏执型人格、精神状态不佳、死本能”等诊断或病理化标签；不得因亲属地点、职业或身份而推断时代创伤或人格成因。禁止输出任务说明、材料说明、泛化套话、诊断或医疗判断。可以使用“可能”等克制措辞，但不要重复免责声明。`;
       const content = await askModel(task, { materials: body.materials || [] });
       const parsed = parseObject(content);
-      const sections = Object.fromEntries(portraitTopics.map((topic) => { const text = typeof parsed[topic] === 'string' ? cleanPortraitText(parsed[topic]) : ''; return [topic, isSafePortraitText(text) ? text : '']; }).filter(([, text]) => text));
-      return send(res, 200, { sections });
+      const sourceSections = parsed.sections && typeof parsed.sections === 'object' ? parsed.sections : parsed;
+      const sections = Object.fromEntries(portraitTopics.map((topic) => { const text = typeof sourceSections[topic] === 'string' ? cleanPortraitText(sourceSections[topic]) : ''; return [topic, isSafePortraitText(text) ? text : '']; }).filter(([, text]) => text));
+      const summary = typeof parsed.summary === 'string' && isSafePortraitText(cleanPortraitText(parsed.summary)) ? cleanPortraitText(parsed.summary) : '';
+      const extras = Object.fromEntries(portraitExtras.map((topic) => { const text = parsed.extras && typeof parsed.extras[topic] === 'string' ? cleanPortraitText(parsed.extras[topic]) : ''; return [topic, isSafePortraitText(text) ? text : '']; }).filter(([, text]) => text));
+      return send(res, 200, { summary, sections, extras });
     }
     if (path.endsWith('/asr/transcribe')) return send(res, 501, { message: '请配置腾讯 ASR 后启用此接口。' });
     return send(res, 404, { message: '未找到此接口' });

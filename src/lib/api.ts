@@ -86,7 +86,7 @@ export const api = {
   async parentPortrait(personId: PersonId, materials: Material[], feedback: Insight[] = []) {
     if (!baseUrl) return null;
     try {
-      const result = await call<{ sections?: Record<string, string> }>('ai/parent-portrait', { personId, materials, feedback: feedback.map(({ title, body, status, sourceIds }) => ({ title, body, status, sourceIds })) });
+      const result = await call<{ sections?: Record<string, string>; summary?: string; extras?: Record<string, string> }>('ai/parent-portrait', { personId, materials, feedback: feedback.map(({ title, body, status, sourceIds }) => ({ title, body, status, sourceIds })) });
       return Object.keys(result.sections || {}).length ? result : null;
     } catch (error) { console.warn('portrait request failed', error); return null; }
   },
