@@ -12,7 +12,7 @@ const send = (res, status, payload) => {
 const bodyOf = (req) => new Promise((resolve, reject) => { let raw = ''; req.on('data', (chunk) => { raw += chunk; }); req.on('end', () => { try { resolve(raw ? JSON.parse(raw) : {}); } catch { reject(new Error('请求数据不是有效 JSON')); } }); req.on('error', reject); });
 const instruction = (task, payload) => `你是“寻根之旅·原生家庭考古”的 AI 生命档案师。只基于用户给出的材料提出可验证、待用户确认的理解；不诊断人格，不替人下结论，不许诺疗愈效果。表达温和、具体、简洁。任务：${task}\n材料：${JSON.stringify(payload)}`;
 const portraitTopics = ['人生背景摘要', '成长经历', '性格倾向', '核心价值观', '最看重什么', '可能最害怕什么', '爱的表达方式', '愤怒表达方式', '冲突处理方式', '对家庭的理解', '对孩子的主要期待', '对我的主要态度', '常说的话 / 语言风格', '重要人生局限', '时代与家庭环境的影响'];
-const isSafePortraitText = (value) => typeof value === 'string' && value.trim().length >= 8 && value.trim().length <= 180 && !/(请基于|任务[:：]|材料[:：]|输出|生成结构化|覆盖[:：]|维度可能呈现|不诊断|不下定论|当前材料提示|等待用户核对|材料未提及|未提供|信息不足|材料仅显示|材料显示|从材料看|从这些记录看|从你记录)/.test(value);
+const isSafePortraitText = (value) => typeof value === 'string' && value.trim().length >= 8 && value.trim().length <= 180 && !/(请基于|任务[:：]|材料[:：]|输出|生成结构化|覆盖[:：]|维度可能呈现|不诊断|不下定论|当前材料提示|等待用户核对|材料未提及|未提供|信息不足|材料仅显示|材料显示|从材料看|从这些记录看|从你记录|偏执型人格|人格障碍|精神状态不佳|死本能|病态)/.test(value);
 const isSafeDynamicInsight = (value) => typeof value === 'string' && value.trim().length >= 18 && value.trim().length <= 150 && !/(请基于|任务[:：]|材料[:：]|输出|生成结构化|不诊断|不下定论|等待用户核对|当前材料提示|从这段关于|暂时看到一种为了适应环境|值得继续被补充和核对|不是被匆忙定义|这只是一个等待你核对)/.test(value);
 const parseObject = (content) => { try { return JSON.parse((content.match(/\{[\s\S]*\}/) || [content])[0]); } catch { return {}; } };
 const cleanPortraitText = (value) => value.trim().replace(/^(?:从(?:这些)?(?:材料|记录)看|材料(?:仅)?显示)[，,:：\s]*/u, '').replace(/[，,]?\s*(?:具体职业与家庭结构|其他背景信息)未提及。?$/u, '').trim();
@@ -37,6 +37,19 @@ const server = http.createServer(async (req, res) => {
     if (path.endsWith('/auth/send-code')) return send(res, 501, { message: '请先在 CloudBase 身份认证中启用短信登录；前端将直接调用 CloudBase Auth。' });
     if (path.endsWith('/auth/verify-code')) return send(res, 501, { message: '短信认证改由 CloudBase Auth SDK 完成，不由云函数自行签发 Token。' });
     if (path.endsWith('/ai/interview-question')) return send(res, 200, { question: await askModel('只提出一个适合继续录入的开放问题，不解释、不编号，问题应围绕指定人物与当前档案栏目。', body) });
+    if (path.endsWith('/ai/structure-material')) {
+      const task = `把一段自由记录拆成可被后续理解使用的最小信息单元。只返回 JSON，不要 Markdown：{"segments":[{"personId":"mother|father|self|family","evidenceType":"fact|experience|interpretation|hypothesis","text":"忠实、简短的中文转述"}]}。
+分类规则：
+1. fact 是可观察的人生经历、关系、行为、原话或背景；experience 是用户自己经历到的关系感受；interpretation 是用户对含义或影响的理解；hypothesis 是未经验证的标签、推测或判断。
+2. 一句话同时涉及父亲、母亲、自己或家庭时必须拆开。例如“父亲是木工”归 father/fact；“我觉得世界充满恨”归 self/experience 或 self/interpretation。
+3. 绝不把“人格、精神疾病、死本能”等标签改写为事实；此类内容必须归 hypothesis，并保留为“用户的判断/担心”。
+4. 不增加原文没有的信息，不做分析、不安慰、不诊断。每段 8 至 180 字，最多 16 段。`;
+      const parsed = parseObject(await askModel(task, body));
+      const allowedSubjects = ['mother', 'father', 'self', 'family'];
+      const allowedTypes = ['fact', 'experience', 'interpretation', 'hypothesis'];
+      const segments = Array.isArray(parsed.segments) ? parsed.segments.slice(0, 16).filter((item) => allowedSubjects.includes(item?.personId) && allowedTypes.includes(item?.evidenceType) && typeof item?.text === 'string' && item.text.trim().length >= 6).map((item) => ({ personId: item.personId, evidenceType: item.evidenceType, text: item.text.trim().slice(0, 360) })) : [];
+      return send(res, 200, { segments });
+    }
     if (path.endsWith('/ai/classify-material')) {
       const sectionsByPerson = body.sectionsByPerson || { [body.personId]: body.sections || [] };
       const content = await askModel('判断这段家庭自由录入材料主要涉及 mother（母亲）、father（父亲）还是 self（用户自己）；再归入该人物对应 sections 中最贴近的一项。只返回 JSON，不要 Markdown，格式为 {"personId":"mother|father|self","section":"栏目名称","reason":"不超过40字的归类原因"}。section 必须完全等于该 personId 对应 sections 中的一项；无法判断时选择 self 和其“其他”或最后一项。', body);
@@ -64,7 +77,10 @@ const server = http.createServer(async (req, res) => {
     if (path.endsWith('/ai/deep-insight')) return send(res, 200, { id: randomUUID(), kind: 'dilemma', status: 'pending', title: '从原生家庭视角的一种可能理解', body: await askModel('针对当前困惑生成可追溯洞见；不超过 240 字，并明确这不是定论。', body), sourceIds: (body.materials || []).slice(0, 8).map((item) => item.id) });
     if (path.endsWith('/ai/parent-portrait')) {
       const person = body.personId === 'father' ? '父亲' : '母亲';
-      const task = `仅根据材料，整理${person}的“内在${person}画像”。必须只返回 JSON 对象，不能使用 Markdown，键必须且只能是：${portraitTopics.map((topic) => `“${topic}”`).join('、')}。每个值为 8 至 120 字的具体理解，必须能被材料支持；没有可靠材料的键填空字符串 ""。直接写画像结论，不要以“从材料看”“材料显示”“未提供”或“资料不足”开头，也不要描述你拿到了什么资料。禁止输出任务说明、材料说明、泛化套话、诊断或医疗判断。可以使用“可能”等克制措辞，但不要重复免责声明。`;
+      const task = `仅根据已分层材料，整理${person}的“内在${person}画像”。必须只返回 JSON 对象，不能使用 Markdown，键必须且只能是：${portraitTopics.map((topic) => `“${topic}”`).join('、')}。每个值为 8 至 120 字的具体理解，必须能被材料支持；没有可靠材料的键填空字符串 ""。
+材料中 evidenceType=fact 可用于描述明确写出的经历、行为或原话；experience 只能写成“用户感受到/经历到”；interpretation 可作为待核对的理解；hypothesis 不能当作事实、成因或诊断依据。
+严禁常识性补全：不能仅因“长女、有弟妹”就写照顾弟妹、做家务、被迫早熟；不能仅因学历或读书愿望就写失学原因、家庭条件、未能实现或人生遗憾；不能仅因善良、斗争、观察力就推断爱的表达、愤怒方式、对孩子期待或家庭价值观。没有明确行为或原话就留空。
+直接写画像结论，不要以“从材料看”“材料显示”“未提供”或“资料不足”开头，也不要描述你拿到了什么资料。禁止复述“偏执型人格、精神状态不佳、死本能”等诊断或病理化标签；不得因亲属地点、职业或身份而推断时代创伤或人格成因。禁止输出任务说明、材料说明、泛化套话、诊断或医疗判断。可以使用“可能”等克制措辞，但不要重复免责声明。`;
       const content = await askModel(task, { materials: body.materials || [] });
       const parsed = parseObject(content);
       const sections = Object.fromEntries(portraitTopics.map((topic) => { const text = typeof parsed[topic] === 'string' ? cleanPortraitText(parsed[topic]) : ''; return [topic, isSafePortraitText(text) ? text : '']; }).filter(([, text]) => text));

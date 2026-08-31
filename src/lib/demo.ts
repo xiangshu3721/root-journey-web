@@ -1,4 +1,4 @@
-import type { JourneyData, Material, PersonId } from '../types';
+import type { JourneyData, Material, MaterialSubject } from '../types';
 const id = () => crypto.randomUUID();
 export const freshJourney = (): JourneyData => ({
   profile: { name: '', phone: '', avatar: '我', motto: '把人生重新拿回来。', wechatQr: '', gender: '', birthYear: '', birthplace: '', siblings: '', lifeStages: [] },
@@ -12,4 +12,4 @@ export const freshJourney = (): JourneyData => ({
     { id: 'innerMother', name: '内在母亲', avatar: '母', trait: '接纳 · 滋养 · 连接', basedOn: ['mother'] }
   ]
 });
-export const createMaterial = (personId: PersonId, section: string, text: string, source: Material['source']): Material => ({ id: id(), personId, section, text, source, createdAt: new Date().toISOString() });
+export const createMaterial = (personId: MaterialSubject, section: string, text: string, source: Material['source'], extra: Partial<Material> = {}): Material => ({ id: id(), personId, section, text, source, createdAt: new Date().toISOString(), ...extra });

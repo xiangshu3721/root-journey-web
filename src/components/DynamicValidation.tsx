@@ -7,7 +7,11 @@ export function DynamicValidation({ data, persist, toast }: { data: JourneyData;
   const [hidden, setHidden] = useState<string[]>([]);
   const [requestVersion, setRequestVersion] = useState(0);
   const requested = useRef(new Set<string>());
-  const signature = data.materials.map((item) => item.id).sort().join('|');
+  const analysisMaterials = useMemo(() => {
+    const structured = data.materials.filter((item) => !item.isRaw);
+    return structured.length ? structured : data.materials;
+  }, [data.materials]);
+  const signature = analysisMaterials.map((item) => item.id).sort().join('|');
   const pending = useMemo(() => data.insights.filter((item) => item.kind === 'hypothesis' && item.status === 'pending' && isActionableInsight(item.body) && !hidden.includes(item.id)), [data.insights, hidden]);
   const current = pending[0];
   useEffect(() => {
@@ -17,16 +21,16 @@ export function DynamicValidation({ data, persist, toast }: { data: JourneyData;
     requested.current.add(signature);
     const feedback = data.insights.filter((item) => item.kind === 'hypothesis' && item.status !== 'pending');
     const portraits = data.insights.filter((item) => item.kind === 'portrait');
-    void api.dynamicInsights(data.materials, feedback, portraits).then(async (results) => {
+    void api.dynamicInsights(analysisMaterials, feedback, portraits).then(async (results) => {
       const candidates = results.filter((item) => isActionableInsight(item.body)).slice(0, 3);
       if (!candidates.length) return;
       const next: JourneyData = {
         ...data,
-        insights: [...candidates.map((item) => ({ id: crypto.randomUUID(), kind: 'hypothesis' as const, status: 'pending' as const, title: item.title.trim(), body: item.body.trim(), sourceIds: data.materials.map((material) => material.id), materialSignature: signature })), ...data.insights]
+        insights: [...candidates.map((item) => ({ id: crypto.randomUUID(), kind: 'hypothesis' as const, status: 'pending' as const, title: item.title.trim(), body: item.body.trim(), sourceIds: analysisMaterials.map((material) => material.id), materialSignature: signature })), ...data.insights]
       };
       await persist(next);
     });
-  }, [signature, current?.id, requestVersion]);
+  }, [signature, current?.id, requestVersion, analysisMaterials]);
   function decide(status: Approval) {
     if (!current) return;
     void persist({ ...data, insights: data.insights.map((item) => item.id === current.id ? { ...item, status } : item) });

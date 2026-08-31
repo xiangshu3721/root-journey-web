@@ -1,4 +1,4 @@
-import type { Insight, JourneyData, Material, PersonId } from '../types';
+import type { EvidenceType, Insight, JourneyData, Material, MaterialSubject, PersonId } from '../types';
 import { cloudbaseAuth } from './cloudbase';
 const KEY = 'root-journey-demo-v1';
 const baseUrl = import.meta.env.VITE_CLOUDBASE_FUNCTION_URL as string | undefined;
@@ -32,6 +32,22 @@ export const api = {
     try {
       const result = await call<{ question: string }>('ai/interview-question', { personId: 'family', section: '家庭自由录入（母亲、父亲与我自己）', materials: materials.slice(0, 10), fallback });
       return result.question || fallback;
+    } catch { return fallback; }
+  },
+  async structureMaterial(text: string, defaultSubject: PersonId) {
+    type Segment = { personId: MaterialSubject; evidenceType: EvidenceType; text: string };
+    const fallback: Segment[] = [{ personId: defaultSubject, evidenceType: 'experience', text }];
+    if (!baseUrl) return fallback;
+    try {
+      const result = await call<{ segments?: Array<Partial<Segment>> }>('ai/structure-material', { text, defaultSubject });
+      const allowedSubjects: MaterialSubject[] = ['mother', 'father', 'self', 'family'];
+      const allowedEvidence: EvidenceType[] = ['fact', 'experience', 'interpretation', 'hypothesis'];
+      const segments = (result.segments || []).map((item) => ({
+        personId: allowedSubjects.includes(item.personId as MaterialSubject) ? item.personId as MaterialSubject : defaultSubject,
+        evidenceType: allowedEvidence.includes(item.evidenceType as EvidenceType) ? item.evidenceType as EvidenceType : 'experience' as EvidenceType,
+        text: typeof item.text === 'string' ? item.text.trim() : ''
+      })).filter((item) => item.text.length >= 6 && item.text.length <= 360);
+      return segments.length ? segments : fallback;
     } catch { return fallback; }
   },
   async classifyMaterial(text: string, availableSectionsByPerson: Record<PersonId, string[]>) {

@@ -18,7 +18,8 @@ export function ParentPortraits({ data, persist }: { data: JourneyData; persist:
   const inFlight = useRef(new Set<string>());
   const roleId = personId === 'father' ? 'innerFather' : 'innerMother';
   const role = data.innerRoles.find((item) => item.id === roleId)!;
-  const materials = data.materials.filter((item) => item.personId === personId);
+  const materials = data.materials.filter((item) => item.personId === personId && !item.isRaw);
+  const legacyMaterials = materials.filter((item) => !item.evidenceType);
   const portrait = useMemo(() => data.insights.find((item) => item.kind === 'portrait' && item.title.startsWith(`${labels[personId]} ·`) && hasUsableSections(item)), [data.insights, personId]);
   const materialKey = `${personId}:${materials.map((item) => item.id).sort().join('|')}`;
   const feedback = useMemo(() => data.insights.filter((item) => item.kind === 'hypothesis' && item.status !== 'pending' && item.sourceIds.some((sourceId) => materials.some((material) => material.id === sourceId))), [data.insights, materials]);
@@ -31,7 +32,22 @@ export function ParentPortraits({ data, persist }: { data: JourneyData; persist:
     setGenerating(true);
     setGenerationFailed(false);
     try {
-      const output = await api.parentPortrait(personId, materials, feedback);
+      let nextData = data;
+      let portraitMaterials = materials;
+      if (legacyMaterials.length) {
+        const migrated = await Promise.all(legacyMaterials.map(async (material) => {
+          const segments = await api.structureMaterial(material.text, personId);
+          return {
+            raw: { ...material, isRaw: true, evidenceType: 'raw' as const, section: `${material.section}原文` },
+            segments: segments.map((segment) => ({ ...material, id: crypto.randomUUID(), personId: segment.personId, section: material.section, text: segment.text, evidenceType: segment.evidenceType, rawEntryId: material.id, isRaw: false }))
+          };
+        }));
+        const migratedIds = new Set(legacyMaterials.map((item) => item.id));
+        const structured = migrated.flatMap((item) => item.segments);
+        nextData = { ...data, materials: [...structured, ...migrated.map((item) => item.raw), ...data.materials.filter((item) => !migratedIds.has(item.id))] };
+        portraitMaterials = nextData.materials.filter((item) => item.personId === personId && !item.isRaw);
+      }
+      const output = await api.parentPortrait(personId, portraitMaterials, feedback);
       const sections = Object.fromEntries(Object.entries(output?.sections || {}).map(([topic, text]) => [topic, typeof text === 'string' ? cleanPortraitText(text) : '']).filter(([topic, text]) => topics.includes(topic) && text.length >= 8 && text.length <= 180 && !invalidPortraitText.test(text)));
       if (!Object.keys(sections).length) {
         setGenerationFailed(true);
@@ -41,9 +57,9 @@ export function ParentPortraits({ data, persist }: { data: JourneyData; persist:
       const next: Insight = {
         id: crypto.randomUUID(), kind: 'portrait', status: 'confirmed', title: `${labels[personId]} · 内在${labels[personId]}画像`,
         body: '基于已录入材料形成的动态画像。', portraitSections: sections,
-        sourceIds: materials.map((item) => item.id), materialSignature: `${materialKey}|${feedbackKey}`, confidence: materials.length >= 6 ? '中' : '低'
+        sourceIds: portraitMaterials.map((item) => item.id), materialSignature: `${personId}:${portraitMaterials.map((item) => item.id).sort().join('|')}|${feedbackKey}`, confidence: portraitMaterials.length >= 6 ? '中' : '低'
       };
-      await persist({ ...data, insights: [next, ...data.insights.filter((item) => !(item.kind === 'portrait' && item.title.startsWith(`${labels[personId]} ·`)))] });
+      await persist({ ...nextData, insights: [next, ...nextData.insights.filter((item) => !(item.kind === 'portrait' && item.title.startsWith(`${labels[personId]} ·`)))] });
     } finally { inFlight.current.delete(materialKey); setGenerating(false); }
   }
 
@@ -58,7 +74,7 @@ export function ParentPortraits({ data, persist }: { data: JourneyData; persist:
     <span className="eyebrow">内在父母</span><h1>从你的经历里，<br />看见内在父母。</h1>
     <p className="page-copy">内在父亲 / 内在母亲来自你提供的经历与感受，不等同于现实中的父母本人。每次新增材料，系统都会重新核对并更新画像。</p>
     <div className="person-tabs">{(['mother', 'father'] as PersonId[]).map((id) => <button key={id} className={personId === id ? 'selected' : ''} onClick={() => setPersonId(id)}><i className={id}>{data.people[id].avatar}</i>内在{labels[id]}</button>)}</div>
-    <section className="portrait-profile"><i>{role.avatar}</i><div><span>内在角色</span><h2>{role.name}</h2><p>材料基础：{materials.length} 条关于{labels[personId]}的原始记录</p></div>{materials.length > 0 && <button className="secondary portrait-refresh" disabled={generating} onClick={() => void generate()}>{generating ? '正在更新…' : needsUpdate ? `更新内在${labels[personId]}` : `刷新内在${labels[personId]}`} </button>}<button className="text-button" onClick={edit}>修改头像与称呼</button></section>
+    <section className="portrait-profile"><i>{role.avatar}</i><div><span>内在角色</span><h2>{role.name}</h2><p>材料基础：{materials.length} 条已归属到{labels[personId]}的线索</p></div>{materials.length > 0 && <button className="secondary portrait-refresh" disabled={generating} onClick={() => void generate()}>{generating ? '正在更新…' : needsUpdate ? `更新内在${labels[personId]}` : `刷新内在${labels[personId]}`} </button>}<button className="text-button" onClick={edit}>修改头像与称呼</button></section>
     {portrait ? <section className="portrait-result">
       <span>动态画像 · 基于 {portrait.sourceIds.length} 条可追溯材料</span><h2>{portrait.title}</h2>
       <p className="portrait-note">每一项都是依据已录入经历形成的当前理解；没有依据的部分会先留白。</p>
