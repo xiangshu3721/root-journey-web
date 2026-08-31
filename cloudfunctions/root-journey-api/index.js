@@ -15,6 +15,7 @@ const portraitTopics = ['人生背景摘要', '成长经历', '性格倾向', '�
 const isSafePortraitText = (value) => typeof value === 'string' && value.trim().length >= 8 && value.trim().length <= 180 && !/(请基于|任务[:：]|材料[:：]|输出|生成结构化|覆盖[:：]|维度可能呈现|不诊断|不下定论|当前材料提示|等待用户核对|材料未提及|未提供|信息不足|材料仅显示|材料显示|从材料看|从这些记录看|从你记录)/.test(value);
 const isSafeDynamicInsight = (value) => typeof value === 'string' && value.trim().length >= 18 && value.trim().length <= 150 && !/(请基于|任务[:：]|材料[:：]|输出|生成结构化|不诊断|不下定论|等待用户核对|当前材料提示|从这段关于|暂时看到一种为了适应环境|值得继续被补充和核对|不是被匆忙定义|这只是一个等待你核对)/.test(value);
 const parseObject = (content) => { try { return JSON.parse((content.match(/\{[\s\S]*\}/) || [content])[0]); } catch { return {}; } };
+const cleanPortraitText = (value) => value.trim().replace(/^(?:从(?:这些)?(?:材料|记录)看|材料(?:仅)?显示)[，,:：\s]*/u, '').replace(/[，,]?\s*(?:具体职业与家庭结构|其他背景信息)未提及。?$/u, '').trim();
 async function askModel(task, payload) {
   const url = process.env.DEEPSEEK_API_URL || 'https://api.deepseek.com/chat/completions';
   const key = process.env.DEEPSEEK_API_KEY;
@@ -66,7 +67,7 @@ const server = http.createServer(async (req, res) => {
       const task = `仅根据材料，整理${person}的“内在${person}画像”。必须只返回 JSON 对象，不能使用 Markdown，键必须且只能是：${portraitTopics.map((topic) => `“${topic}”`).join('、')}。每个值为 8 至 120 字的具体理解，必须能被材料支持；没有可靠材料的键填空字符串 ""。直接写画像结论，不要以“从材料看”“材料显示”“未提供”或“资料不足”开头，也不要描述你拿到了什么资料。禁止输出任务说明、材料说明、泛化套话、诊断或医疗判断。可以使用“可能”等克制措辞，但不要重复免责声明。`;
       const content = await askModel(task, { materials: body.materials || [] });
       const parsed = parseObject(content);
-      const sections = Object.fromEntries(portraitTopics.map((topic) => [topic, isSafePortraitText(parsed[topic]) ? parsed[topic].trim() : '']).filter(([, text]) => text));
+      const sections = Object.fromEntries(portraitTopics.map((topic) => { const text = typeof parsed[topic] === 'string' ? cleanPortraitText(parsed[topic]) : ''; return [topic, isSafePortraitText(text) ? text : '']; }).filter(([, text]) => text));
       return send(res, 200, { sections });
     }
     if (path.endsWith('/asr/transcribe')) return send(res, 501, { message: '请配置腾讯 ASR 后启用此接口。' });

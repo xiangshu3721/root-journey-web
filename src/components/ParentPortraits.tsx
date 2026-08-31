@@ -5,14 +5,16 @@ import type { Insight, JourneyData, PersonId } from '../types';
 const labels: Record<PersonId, string> = { father: '父亲', mother: '母亲' };
 const topics = ['人生背景摘要', '成长经历', '性格倾向', '核心价值观', '最看重什么', '可能最害怕什么', '爱的表达方式', '愤怒表达方式', '冲突处理方式', '对家庭的理解', '对孩子的主要期待', '对我的主要态度', '常说的话 / 语言风格', '重要人生局限', '时代与家庭环境的影响'];
 const invalidPortraitText = /(请基于|任务[:：]|材料[:：]|输出|生成结构化|覆盖[:：]|维度可能呈现|不诊断|不下定论|当前材料提示|等待用户核对|从你记录的内容看|提供了一条可继续核对的线索|这是理解.{0,4}起点)/;
+const cleanPortraitText = (value: string) => value.trim().replace(/^(?:从(?:这些)?(?:材料|记录)看|材料(?:仅)?显示)[，,:：\s]*/u, '').replace(/[，,]?\s*(?:具体职业与家庭结构|其他背景信息)未提及。?$/u, '').trim();
 
 function hasUsableSections(value: Insight | undefined) {
-  return Boolean(value?.portraitSections && Object.values(value.portraitSections).some((item) => item.trim().length >= 8 && !invalidPortraitText.test(item)));
+  return Boolean(value?.portraitSections && Object.values(value.portraitSections).some((item) => cleanPortraitText(item).length >= 8 && !invalidPortraitText.test(item)));
 }
 
 export function ParentPortraits({ data, persist }: { data: JourneyData; persist: (next: JourneyData) => Promise<void> }) {
   const [personId, setPersonId] = useState<PersonId>('mother');
   const [generationTick, setGenerationTick] = useState(0);
+  const [generationFailed, setGenerationFailed] = useState(false);
   const inFlight = useRef(new Set<string>());
   const retries = useRef(new Map<string, number>());
   const roleId = personId === 'father' ? 'innerFather' : 'innerMother';
@@ -28,15 +30,16 @@ export function ParentPortraits({ data, persist }: { data: JourneyData; persist:
     inFlight.current.add(materialKey);
     try {
       const output = await api.parentPortrait(personId, materials, feedback);
-      const sections = Object.fromEntries(Object.entries(output?.sections || {}).filter(([topic, text]) => topics.includes(topic) && typeof text === 'string' && text.trim().length >= 8 && text.trim().length <= 180 && !invalidPortraitText.test(text)));
+      const sections = Object.fromEntries(Object.entries(output?.sections || {}).map(([topic, text]) => [topic, typeof text === 'string' ? cleanPortraitText(text) : '']).filter(([topic, text]) => topics.includes(topic) && text.length >= 8 && text.length <= 180 && !invalidPortraitText.test(text)));
       if (!Object.keys(sections).length) {
         const attempts = retries.current.get(materialKey) || 0;
         if (attempts < 2) {
           retries.current.set(materialKey, attempts + 1);
           window.setTimeout(() => setGenerationTick((value) => value + 1), 900 * (attempts + 1));
-        }
+        } else setGenerationFailed(true);
         return;
       }
+      setGenerationFailed(false);
       retries.current.delete(materialKey);
       const next: Insight = {
         id: crypto.randomUUID(), kind: 'portrait', status: 'confirmed', title: `${labels[personId]} · 内在${labels[personId]}画像`,
@@ -49,7 +52,7 @@ export function ParentPortraits({ data, persist }: { data: JourneyData; persist:
 
   useEffect(() => {
     const needsRefresh = materials.length && (!portrait || portrait.materialSignature !== `${materialKey}|${feedbackKey}`);
-    if (needsRefresh) void generate();
+    if (needsRefresh) { setGenerationFailed(false); void generate(); }
   }, [materialKey, feedbackKey, portrait?.id, portrait?.materialSignature, generationTick]);
 
   function edit() {
@@ -69,6 +72,6 @@ export function ParentPortraits({ data, persist }: { data: JourneyData; persist:
       <p className="portrait-note">每一项都是依据已录入经历形成的当前理解；没有依据的部分会先留白。</p>
       <div className="portrait-dimensions">{topics.map((title) => { const text = portrait.portraitSections?.[title]; return <article key={title} className={text ? '' : 'insufficient'}><b>{title}</b><p>{text || '暂无足够材料形成这项理解。'}</p></article>; })}</div>
       <details><summary>查看形成这版画像的原始材料</summary>{materials.filter((item) => portrait.sourceIds.includes(item.id)).map((item) => <p key={item.id}>· {item.text}</p>)}</details>
-    </section> : materials.length ? <section className="portrait-empty portrait-skeleton" aria-label="正在更新画像"><div /><div /><div /><div /></section> : <section className="portrait-empty"><h2>从一段真实故事开始</h2><p>关于{labels[personId]}的经历还没有被记录。写下一件你记得的事，画像会从那里慢慢变得清晰。</p></section>}
+    </section> : materials.length ? generationFailed ? <section className="portrait-empty"><h2>画像暂未整理完成</h2><p>已有经历已经保留。请重新整理一次，系统会继续基于这些内容生成理解。</p><button className="secondary" onClick={() => { retries.current.delete(materialKey); setGenerationFailed(false); setGenerationTick((value) => value + 1); }}>重新整理</button></section> : <section className="portrait-empty portrait-skeleton" aria-label="正在更新画像"><div /><div /><div /><div /></section> : <section className="portrait-empty"><h2>从一段真实故事开始</h2><p>关于{labels[personId]}的经历还没有被记录。写下一件你记得的事，画像会从那里慢慢变得清晰。</p></section>}
   </div>;
 }
