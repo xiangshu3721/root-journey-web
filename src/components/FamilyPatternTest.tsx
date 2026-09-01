@@ -39,8 +39,8 @@ const openPrompts = [
   ['对我的期待', '如果用一句话概括，你觉得父亲和母亲最希望你成为一个怎样的人？']
 ] as const;
 
-export function FamilyPatternTest({ assessment, onComplete, onContinueParents }: { assessment?: FamilyPatternAssessment; onComplete?: (next: FamilyPatternAssessment) => void; onContinueParents?: () => void }) {
-  const [mode, setMode] = useState<'intro' | 'test' | 'open' | 'result'>(assessment ? 'result' : 'intro');
+export function FamilyPatternTest({ assessment, startAtTest = false, onComplete, onContinueParents }: { assessment?: FamilyPatternAssessment; startAtTest?: boolean; onComplete?: (next: FamilyPatternAssessment) => void; onContinueParents?: () => void }) {
+  const [mode, setMode] = useState<'intro' | 'test' | 'open' | 'result'>(assessment ? 'result' : startAtTest ? 'test' : 'intro');
   const [step, setStep] = useState(0); const [completed, setCompleted] = useState<FamilyPatternAssessment | undefined>();
   const [answers, setAnswers] = useState<Array<number | null>>(assessment?.answers || Array(32).fill(null));
   const [openAnswers, setOpenAnswers] = useState<Record<string, string>>(assessment?.openAnswers || {});
