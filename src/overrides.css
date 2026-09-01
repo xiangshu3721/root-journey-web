@@ -150,7 +150,9 @@
   animation:journey-gate-arrival .9s cubic-bezier(.16,1,.3,1) both;
 }
 .journey-gate__eyebrow{margin:0 0 22px;color:#c0d9bd;font-size:12px;font-weight:700;letter-spacing:.15em}
-.journey-gate__content h1{margin:0;color:#f3f6ed;font:400 clamp(48px,5.7vw,82px)/1.2 Georgia,"Songti SC",serif;letter-spacing:.02em}
+.journey-gate__content h1{margin:0;color:#f3f6ed;font:400 clamp(20px,3vw,44px)/1.2 Georgia,"Songti SC",serif;letter-spacing:.02em}
+.journey-gate__content h1,.assessment-intro h1{white-space:nowrap}
+.assessment-intro h1{font-size:clamp(21px,3.9vw,44px)}
 .journey-gate__copy{max-width:360px;margin:21px 0 0;color:#c2d0c2;font-size:clamp(14px,1.25vw,16px);line-height:1.7}
 .journey-gate__start{
   display:flex;
@@ -188,11 +190,48 @@
   .journey-gate::after{background:linear-gradient(180deg,rgba(5,15,11,.55),rgba(5,15,11,.72) 55%,rgba(5,15,11,.82)),linear-gradient(90deg,rgba(5,15,11,.18),rgba(5,15,11,.18))}
   .journey-gate__content{align-self:center;margin-top:6vh}
   .journey-gate__eyebrow{margin-bottom:18px;font-size:11px}
-  .journey-gate__content h1{font-size:clamp(42px,12vw,56px);line-height:1.23}
+  .journey-gate__content h1{font-size:20px;line-height:1.23}
+  .assessment-intro h1{font-size:17px;letter-spacing:0}
   .journey-gate__copy{max-width:280px;margin-top:19px;font-size:14px}
   .journey-gate__start{width:100%;margin-top:34px;padding:15px 18px;font-size:15px}
   .journey-gate__glow{right:5%;bottom:15%;width:220px}
 }
 @media(prefers-reduced-motion:reduce){
   .journey-gate__content,.journey-gate__glow{animation:none}
+}
+
+.parent-recorder textarea{scroll-margin-top:20px}
+.area-picker{display:grid;gap:8px}
+.area-picker-trigger{display:flex;align-items:center;justify-content:space-between;width:100%;border:1px solid #daded5;border-radius:9px;padding:11px;background:#fffefa;color:#2d4033;text-align:left}
+.area-picker-trigger b{color:#52745d;font-size:12px}
+.area-picker-panel{display:grid;gap:8px;border-left:2px solid #c8d9c7;padding-left:10px}
+.area-picker-panel select{width:100%}
+.area-picker-done{justify-self:start;border:0;border-radius:8px;padding:8px 12px;background:#e8f0e5;color:#365d42;font-size:12px;font-weight:700}
+@media(max-width:760px){
+  .parent-recorder .record-actions{position:sticky;z-index:1;bottom:8px;padding-top:10px;background:linear-gradient(to bottom,transparent,#f7f4ed 28%)}
+  :root[data-theme="dark"] .parent-recorder .record-actions{background:linear-gradient(to bottom,transparent,#101714 28%)}
+}
+:root[data-theme="dark"] .area-picker-trigger{border-color:#3a4c41;background:#101914;color:#edf3eb}
+:root[data-theme="dark"] .area-picker-trigger b{color:#b7d7b6}
+:root[data-theme="dark"] .area-picker-panel{border-color:#405548}
+:root[data-theme="dark"] .area-picker-done{background:#294431;color:#e2f0e1}
+
+.insight-markdown{margin:8px 0 0;color:#5e6d63;line-height:1.85}
+.insight-markdown p{margin:0 0 12px}
+.insight-markdown h4{margin:19px 0 8px;color:#385d45;font-size:15px;line-height:1.5}
+.insight-markdown strong{color:#385d45}
+.insight-markdown code{border-radius:4px;padding:1px 4px;background:#eef3eb;color:#41644b;font-family:inherit}
+.insight-markdown__item{position:relative;padding-left:16px}
+.insight-markdown__item::before{position:absolute;left:2px;color:#557a60;content:"•"}
+.insight-markdown.is-collapsed{position:relative;max-height:14em;overflow:hidden}
+.insight-markdown.is-collapsed::after{position:absolute;right:0;bottom:0;left:0;height:3em;background:linear-gradient(transparent,#fffefa);content:""}
+:root[data-theme="dark"] .insight-markdown{color:#c5d2c6}
+:root[data-theme="dark"] .insight-markdown h4,:root[data-theme="dark"] .insight-markdown strong{color:#b7d8bd}
+:root[data-theme="dark"] .insight-markdown code{background:#26382b;color:#d6e8d7}
+:root[data-theme="dark"] .insight-markdown.is-collapsed::after{background:linear-gradient(transparent,#17221c)}
+@media(max-width:760px){
+  .dilemma-history-head{display:flex;align-items:center;gap:12px}
+  .dilemma-history-head h2{flex:0 0 auto;font-size:25px}
+  .dilemma-history-head .insight-search{flex:1;min-width:0}
+  .dilemma-history-head .insight-search input{min-width:0;padding:9px 10px;font-size:12px}
 }
