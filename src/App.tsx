@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect, useState } from 'react';
 import { AssessmentResult, FamilyPatternTest } from './components/FamilyPatternTest';
+import { JourneyIntro } from './components/JourneyIntro';
 import { ParentArchive } from './components/ParentArchive';
 import { api } from './lib/api';
 import { freshJourney } from './lib/demo';
@@ -32,6 +33,7 @@ export default function App() {
   const [view, setView] = useState<View>('assessment');
   const [retest, setRetest] = useState(false);
   const [notice, setNotice] = useState('');
+  const [journeyStarted, setJourneyStarted] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>(() => localStorage.getItem('root-journey-theme') === 'dark' ? 'dark' : 'light');
 
   useEffect(() => { void api.load().then((saved) => { if (saved) { const base = freshJourney(); const next = { ...base, ...saved, people: { father: { ...base.people.father, ...saved.people?.father }, mother: { ...base.people.mother, ...saved.people?.mother } }, materials: saved.materials || [], insights: saved.insights || [] }; setData(next); setView(next.familyAssessment ? 'home' : 'assessment'); } setReady(true); }); }, []);
@@ -49,9 +51,10 @@ export default function App() {
     await persist({ ...data, familyAssessment: assessment, materials });
     toast('测试结果已保存在这台设备。');
   }
-  async function clearAll() { if (!window.confirm('确定清除这台设备上的全部测试、档案和洞察吗？此操作无法恢复。')) return; await api.clear(); setData(freshJourney()); setView('assessment'); toast('本机资料已清除。'); }
+  async function clearAll() { if (!window.confirm('确定清除这台设备上的全部测试、档案和洞察吗？此操作无法恢复。')) return; await api.clear(); setData(freshJourney()); setJourneyStarted(false); setView('assessment'); toast('本机资料已清除。'); }
 
   if (!ready) return <div className="assessment-shell"><Brand /><p className="loading-copy">正在读取这台设备上的资料…</p></div>;
+  if (!data.familyAssessment && !journeyStarted) return <JourneyIntro onStart={() => setJourneyStarted(true)} />;
   if (!data.familyAssessment) return <div className="assessment-shell"><Brand /><FamilyPatternTest onComplete={(assessment) => void saveAssessment(assessment)} onContinueParents={() => setView('parents')} /></div>;
   return <div className="app-shell dashboard-shell"><aside><Brand /><nav>{nav.map(([key, title, icon]) => <button key={key} className={view === key ? 'selected' : ''} onClick={() => setView(key)}><i>{icon}</i>{title}</button>)}</nav><button className="device-clear" onClick={() => void clearAll()}>清除本机资料</button><button className="theme-toggle" onClick={() => setTheme((current) => current === 'light' ? 'dark' : 'light')}>{theme === 'dark' ? '切换日间' : '切换夜间'}</button></aside><main>{view === 'home' && <Home data={data} setView={setView} onRestart={() => { setRetest(true); setView('assessment'); }} />} {view === 'parents' && <ParentArchive data={data} persist={persist} toast={toast} />} {view === 'dilemma' && <DilemmaInsight data={data} persist={persist} toast={toast} />} {view === 'assessment' && <section className="page"><FamilyPatternTest assessment={retest ? undefined : data.familyAssessment} startAtTest={retest} onComplete={(assessment) => { setRetest(false); void saveAssessment(assessment); }} onContinueParents={() => setView('parents')} /></section>}</main>{notice && <div className="toast">{notice}</div>}<div className="mobile-nav">{nav.map(([key, title, icon]) => <button key={key} className={view === key ? 'selected' : ''} onClick={() => setView(key)}><i>{icon}</i>{title}</button>)}</div></div>;
 }
