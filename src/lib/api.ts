@@ -15,30 +15,20 @@ const familyQuestions = [
 ];
 
 const labelsForPerson = (personId: PersonId) => personId === 'mother' ? '母亲' : '父亲';
-const deepseekApiKey = import.meta.env.VITE_DEEPSEEK_API_KEY as string | undefined;
-const deepseekApiUrl = (import.meta.env.VITE_DEEPSEEK_API_URL as string | undefined) || 'https://api.deepseek.com/chat/completions';
-const deepseekModel = (import.meta.env.VITE_DEEPSEEK_MODEL as string | undefined) || 'deepseek-chat';
-
-const shortText = (value: string, limit = 700) => value.trim().slice(0, limit);
-const parentContext = (person: Person) => ({
-  name: shortText(person.name, 80), nickname: shortText(person.nickname, 80), birthDate: shortText(person.birthDate, 40), birthplace: shortText(person.birthplace, 120), growthPlace: shortText(person.growthPlace, 120), education: shortText(person.education, 180), work: shortText(person.work, 180), marriage: shortText(person.marriage, 220), wealth: shortText(person.wealth, 180), majorIllness: shortText(person.majorIllness, 180), setbacks: shortText(person.setbacks, 500), lifeEvents: shortText(person.lifeEvents, 700), keyInteractions: shortText(person.keyInteractions, 700)
-});
+// 函数 URL 可以公开；DeepSeek Key 只存放在腾讯云函数的环境变量中。
+const insightApiUrl = (import.meta.env.VITE_INSIGHT_API_URL as string | undefined)
+  || 'https://1304965105-dxgfj5bl4i.ap-shanghai.tencentscf.com';
 
 async function generateDeepInsight(question: string, materials: Material[], assessment?: FamilyPatternAssessment, people?: Record<PersonId, Person>, profile?: BasicProfile) {
-  if (!deepseekApiKey) throw new Error('请先配置本机 DeepSeek API，再生成智能洞察。');
-  const sourceMaterials = materials.filter((item) => !item.isRaw).slice(0, 60).map(({ id, personId, section, text, evidenceType }) => ({ id, personId, section, text: text.slice(0, 600), evidenceType }));
-  const userContext = profile ? { gender: shortText(profile.gender, 30), birthYear: shortText(profile.birthYear, 20), birthplace: shortText(profile.birthplace, 120), siblings: shortText(profile.siblings, 200), lifeStages: profile.lifeStages.map((item) => shortText(item, 120)) } : null;
-  const prompt = `你是一位温和、可靠的心理教育陪伴者。请综合用户的当前问题、个人背景、原生家庭关系模式测试、父母基础信息和已录入材料，写一篇可以直接呈现在“智能洞察”中的中文回答。每次都必须针对当前问题和相关材料重新理解，绝不能复用其他问题的回答或套用固定结论。\n\n请尽可能帮助用户，但始终从用户的感受、处境和选择出发。回答应自然覆盖：\n- 此刻困惑的核心，以及它在当下给用户带来的真实代价；\n- 困惑背后可能的情绪、情感需要或关系期待；\n- 与父母互动、家庭氛围或早年角色之间一条最相关、可核对的联系；\n- 一个能带来新视角的启发；\n- 1 至 2 个低风险、具体、可拒绝或调整的行动建议。\n\n只能依据提供的信息提出“可能、也许、值得核对”的理解，不编造父母经历、动机或用户未描述的事实；不要把所有现实问题归因于原生家庭。不要诊断、贴人格标签、归罪、说教或提供医疗建议。允许表达难过、愤怒、委屈和需要，不把它们当成道德问题。不要使用“材料不足”“从材料看”“引用材料”“任务说明”等流程语言。写成 4 至 5 个自然段，不要标题、编号或 Markdown。总字数 420 至 700 字。\n\n当前问题：${question}\n\n用户背景：${JSON.stringify(userContext)}\n\n关系模式测试：${JSON.stringify(assessment || null)}\n\n父亲基础信息：${JSON.stringify(people ? parentContext(people.father) : null)}\n\n母亲基础信息：${JSON.stringify(people ? parentContext(people.mother) : null)}\n\n已录入材料：${JSON.stringify(sourceMaterials)}`;
-  const response = await fetch(deepseekApiUrl, {
+  const response = await fetch(insightApiUrl, {
     method: 'POST',
-    headers: { authorization: `Bearer ${deepseekApiKey}`, 'content-type': 'application/json' },
-    body: JSON.stringify({ model: deepseekModel, temperature: 0.55, messages: [{ role: 'user', content: prompt }] })
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ question, materials, assessment, people, profile })
   });
-  if (!response.ok) throw new Error('DeepSeek 暂时无法生成洞察，请稍后再试。');
-  const result = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
-  const body = result.choices?.[0]?.message?.content?.trim();
-  if (!body) throw new Error('DeepSeek 未返回有效洞察，请稍后再试。');
-  return { body: body.replace(/\*\*/g, ''), sourceIds: sourceMaterials.map((item) => item.id) };
+  const result = await response.json() as { body?: string; sourceIds?: string[]; message?: string };
+  if (!response.ok) throw new Error(result.message || '智能洞察暂时无法生成，请稍后再试。');
+  if (!result.body) throw new Error('智能洞察未返回有效内容，请稍后再试。');
+  return { body: result.body, sourceIds: result.sourceIds || [] };
 }
 
 export const api = {

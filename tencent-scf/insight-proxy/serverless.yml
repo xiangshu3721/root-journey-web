@@ -1,0 +1,18 @@
+component: scf
+name: root-journey-insight-proxy
+
+inputs:
+  name: root-journey-insight-proxy
+  namespace: default
+  src: ./
+  handler: index.main_handler
+  runtime: Nodejs20.19
+  region: ap-shanghai
+  description: Root Journey DeepSeek insight proxy
+  memorySize: 256
+  timeout: 30
+  environment:
+    variables:
+      DEEPSEEK_API_URL: https://api.deepseek.com/chat/completions
+      DEEPSEEK_MODEL: deepseek-chat
+      ALLOWED_ORIGINS: https://xiangshu3721.github.io,http://localhost:5173
