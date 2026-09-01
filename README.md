@@ -1,6 +1,6 @@
 # 寻根之旅·原生家庭考古
 
-独立响应式 Web 1.0，使用 React + TypeScript + Vite。默认以 `VITE_DEMO_MODE=true` 在浏览器本地运行，便于审核完整交互；生产环境通过 CloudBase FREE 承接短信认证、PostgreSQL、Storage 与云函数。
+独立响应式 Web 1.0，使用 React + TypeScript + Vite。资料与洞察均保存在当前浏览器中，不依赖云端账户、数据库或云函数。
 
 ## 本地运行
 
@@ -13,31 +13,28 @@ npm run dev
 
 演示登录验证码为 `123456`。
 
-## CloudBase 部署职责
+## 数据与智能洞察
 
-| 层 | 职责 |
-|---|---|
-| Auth | 手机号验证码、用户会话与身份令牌 |
-| PostgreSQL | 档案、材料、洞见、内在角色、报告；所有业务表以 `user_id` 配合 RLS 隔离 |
-| Storage | 头像、照片、语音、PDF；按用户目录私有存储并使用短期签名 URL |
-| 云函数 | 验证短信、材料读写、ASR 代理、模型编排与 PDF 生成 |
-| 便宜 LLM | 访谈追问、材料摘要、分类、待确认小结 |
-| 强模型 | 当前困惑深度洞见、生命地图报告；只能读取用户已授权材料 |
+父母档案、测试结果与洞察历史均使用浏览器本地存储。清除浏览器数据或更换设备后，这些资料无法恢复。
 
-`cloudfunctions/root-journey-api` 是 HTTP 云函数骨架；密钥仅配置在函数环境变量。`database/schema.sql` 包含首版 PG 表及行级安全策略。
-
-## 接入 DeepSeek（云函数侧）
-
-所有 AI 能力目前统一使用 DeepSeek：引导问题、材料小结、家庭系统影响链、内在角色对话与当前困惑洞见。请在 CloudBase 控制台进入“云函数 → root-journey-api → 函数配置 → 编辑 → 环境变量”，新增：
-
-| key | value |
-|---|---|
-| `DEEPSEEK_API_KEY` | 你的 DeepSeek API Key |
-| `DEEPSEEK_MODEL` | `deepseek-chat` |
-| `DEEPSEEK_API_URL` | `https://api.deepseek.com/chat/completions`（可不填，代码已有默认值） |
-
-保存后重新部署 `cloudfunctions/root-journey-api`。密钥只留在云函数中，绝不要放入 `.env.local`、前端代码或分享链接。未配置密钥时，演示环境会继续显示本地的安全回退文案，便于审核流程。
+父母档案、测试结果与洞察历史仍保存在浏览器本机。填写 `.env.local` 中的 `VITE_DEEPSEEK_API_KEY` 后，用户每次提交困惑时，浏览器会把当前问题、测试结果和已录入的父母材料直接发送给 DeepSeek，生成独立洞察并保存在本机历史中。此直连方式会将这些内容发送至 DeepSeek，密钥也会出现在浏览器构建产物中，只适合你授权的本地使用场景。
 
 ## 产品安全边界
 
-所有 AI 输出均为待确认理解，必须携带来源材料 ID；不得作为心理诊断、医疗建议或对父母的事实断言。生产函数应在任意深度分析前执行危机文本拦截，并返回专业求助提示。
+所有洞察均为待确认的自我探索提示，不作为心理诊断、医疗建议或对父母的事实断言。
+
+## Working rules
+
+- 不要遍历整个代码库，除非确有必要。
+- 优先修改与当前任务直接相关的文件。
+- 不要重复读取已经读取过的文件。
+- 不要主动进行大规模重构。
+- 不要为了“小优化”修改无关文件。
+- 完成功能后只运行必要测试。
+- 不要自动启动多个子代理。
+- 遇到不确定的问题，先提出最小实现方案。
+- 默认优先采取最小改动原则。
+
+Token efficiency is important.
+Minimize repository exploration, tool calls,
+repeated reads, and unnecessary reasoning.

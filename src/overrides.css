@@ -31,3 +31,84 @@
   .home-page .one-on-one.compact h2{font-size:20px}
   .home-page .one-on-one.compact img{width:88px;height:88px}
 }
+
+/* The dashboard has more-specific light rules, so its dark tokens need the same scope. */
+:root[data-theme="dark"] .home-assessment-full .result-head>div>span,
+:root[data-theme="dark"] .home-assessment-full .assessment-radar-layout + .assessment-summary,
+:root[data-theme="dark"] .home-assessment-full .text-button{color:#b7d7b6}
+:root[data-theme="dark"] .home-assessment-full .top-pattern{border-left-color:#789a7f}
+:root[data-theme="dark"] .home-assessment-full .top-pattern b{color:#e4efe3}
+:root[data-theme="dark"] .home-assessment-full .top-pattern em{color:#c5e3c6}
+:root[data-theme="dark"] .home-assessment-full .top-pattern p{color:#b5c5b7}
+:root[data-theme="dark"] .home-assessment-full .top-pattern small{color:#9eb09f}
+:root[data-theme="dark"] .home-assessment-full .assessment-summary{border-left-color:#789a7f;background:#1c2a22;color:#c5d2c6}
+:root[data-theme="dark"] .home-assessment-full .assessment-scores article{border-color:#34443a;background:#132019;color:#e4efe3}
+:root[data-theme="dark"] .home-assessment-full .assessment-scores strong{color:#edf3eb}
+:root[data-theme="dark"] .home-assessment-full .assessment-scores i{background:#324038}
+:root[data-theme="dark"] .home-assessment-full .assessment-scores i span{background:#b7d7b6}
+:root[data-theme="dark"] .home-assessment-full .assessment-scores small{color:#b5c5b7}
+:root[data-theme="dark"] .home-assessment-full .result-gate{border-color:#405548;background:#1c2a22}
+:root[data-theme="dark"] .home-assessment-full .result-gate h2{color:#edf3eb}
+:root[data-theme="dark"] .home-assessment-full .result-gate p{color:#c5d2c6}
+:root[data-theme="dark"] .home-assessment-full .result-gate .primary{background:#b7d7b6;color:#102018}
+:root[data-theme="dark"] .home-flow>span{color:#b7d7b6}
+:root[data-theme="dark"] .home-flow b{background:#2b3c30;color:#b9c8bb}
+:root[data-theme="dark"] .home-flow div:first-of-type b{background:#b7d7b6;color:#102018}
+:root[data-theme="dark"] .home-flow i{background:#405548}
+:root[data-theme="dark"] .home-parents p{color:#aebdb2}
+:root[data-theme="dark"] .home-parents em{color:#b7d7b6}
+:root[data-theme="dark"] .parent-discovery span,
+:root[data-theme="dark"] .one-on-one-mvp>div>span{color:#b7d7b6}
+:root[data-theme="dark"] .parent-discovery .primary{background:#b7d7b6;color:#102018}
+
+/* Parent archive and its result states share the same dark surface and input treatment. */
+:root[data-theme="dark"] .parent-basics label,
+:root[data-theme="dark"] .basic-info label,
+:root[data-theme="dark"] .stage-picker>span{color:#b5c5b7}
+:root[data-theme="dark"] .parent-basics input,
+:root[data-theme="dark"] .basic-info input,
+:root[data-theme="dark"] .parent-recorder textarea{border-color:#3a4c41;background:#101914;color:#edf3eb}
+:root[data-theme="dark"] .parent-recorder header span,
+:root[data-theme="dark"] .archive-portrait>span,
+:root[data-theme="dark"] .calibration-area>span{color:#b7d7b6}
+:root[data-theme="dark"] .archive-summary,
+:root[data-theme="dark"] .archive-extras article,
+:root[data-theme="dark"] .calibration-card,
+:root[data-theme="dark"] .validation-card{border-color:#405548;background:#1c2a22;color:#e4efe3}
+:root[data-theme="dark"] .archive-summary p,
+:root[data-theme="dark"] .archive-summary small,
+:root[data-theme="dark"] .calibration-card p,
+:root[data-theme="dark"] .calibration-card small,
+:root[data-theme="dark"] .validation-card>small,
+:root[data-theme="dark"] .validation-empty p{color:#b5c5b7}
+:root[data-theme="dark"] .archive-summary article{border-color:#34443a}
+:root[data-theme="dark"] .portrait-result,
+:root[data-theme="dark"] .portrait-empty,
+:root[data-theme="dark"] .impact-chain,
+:root[data-theme="dark"] .spacetime-result,
+:root[data-theme="dark"] .empty-result,
+:root[data-theme="dark"] .archive-cards>article{border-color:#34443a;background:#17221c;color:#e4efe3}
+:root[data-theme="dark"] .portrait-result>p,
+:root[data-theme="dark"] .portrait-empty p,
+:root[data-theme="dark"] .impact-chain>p,
+:root[data-theme="dark"] .spacetime-result>p,
+:root[data-theme="dark"] .empty-result p,
+:root[data-theme="dark"] .archive-cards p,
+:root[data-theme="dark"] .archive-extras p{color:#b5c5b7}
+:root[data-theme="dark"] .portrait-result details,
+:root[data-theme="dark"] .impact-chain details,
+:root[data-theme="dark"] .spacetime-result details{background:#1c2a22;color:#c5d2c6}
+:root[data-theme="dark"] .portrait-result summary,
+:root[data-theme="dark"] .impact-chain summary,
+:root[data-theme="dark"] .spacetime-result summary,
+:root[data-theme="dark"] .archive-cards b,
+:root[data-theme="dark"] .archive-extras b{color:#b7d8bd}
+:root[data-theme="dark"] .archive-cards section{border-color:#34443a}
+:root[data-theme="dark"] .portrait-dimensions article{border-color:#34443a;background:#17221c;color:#e4efe3}
+:root[data-theme="dark"] .portrait-dimensions p,
+:root[data-theme="dark"] .portrait-note{color:#b5c5b7}
+:root[data-theme="dark"] .portrait-dimensions article.insufficient{background:#18231d}
+:root[data-theme="dark"] .portrait-dimensions article.insufficient p{color:#9eb09f}
+:root[data-theme="dark"] .stage-picker button{border-color:#405548;background:#17221c;color:#c5d2c6}
+:root[data-theme="dark"] .stage-picker button.selected{border-color:#789a7f;background:#294431;color:#e2f0e1}
+:root[data-theme="dark"] .validation-empty{border-color:#405548;background:#1c2a22;color:#e4efe3}

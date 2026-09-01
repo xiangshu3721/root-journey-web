@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { AssessmentResult, FamilyPatternTest } from './components/FamilyPatternTest';
 import { ParentArchive } from './components/ParentArchive';
 import { api } from './lib/api';
@@ -7,6 +7,24 @@ import type { FamilyPatternAssessment, Insight, JourneyData, View } from './type
 import wechatQr from './assets/wechat-qr.jpg';
 
 const nav: Array<[View, string, string]> = [['home', '首页', '⌂'], ['parents', '父母档案', '◫'], ['dilemma', '困惑洞察', '◌']];
+const INSIGHTS_PER_PAGE = 4;
+
+function highlightInsightText(text: string, keyword: string) {
+  if (!keyword) return text;
+  const parts: ReactNode[] = [];
+  const normalizedText = text.toLocaleLowerCase();
+  const normalizedKeyword = keyword.toLocaleLowerCase();
+  let cursor = 0;
+  let matchAt = normalizedText.indexOf(normalizedKeyword, cursor);
+  while (matchAt !== -1) {
+    if (matchAt > cursor) parts.push(text.slice(cursor, matchAt));
+    parts.push(<mark key={`${matchAt}-${cursor}`}>{text.slice(matchAt, matchAt + keyword.length)}</mark>);
+    cursor = matchAt + keyword.length;
+    matchAt = normalizedText.indexOf(normalizedKeyword, cursor);
+  }
+  if (cursor < text.length) parts.push(text.slice(cursor));
+  return parts;
+}
 
 export default function App() {
   const [data, setData] = useState<JourneyData>(freshJourney());
@@ -46,7 +64,19 @@ function Home({ data, setView, onRestart }: { data: JourneyData; setView: (view:
 }
 
 function DilemmaInsight({ data, persist, toast }: { data: JourneyData; persist: (next: JourneyData) => Promise<void>; toast: (message: string) => void }) {
-  const [question, setQuestion] = useState(''); const [loading, setLoading] = useState(false); const results = data.insights.filter((item) => item.kind === 'dilemma');
-  async function generate() { if (!question.trim()) return; setLoading(true); try { const output = await api.deepInsight(question.trim(), data.materials, data.familyAssessment); const next: Insight = { ...output, id: crypto.randomUUID(), kind: 'dilemma', status: 'confirmed', title: question.trim(), sourceIds: output.sourceIds || [] }; await persist({ ...data, insights: [next, ...data.insights] }); setQuestion(''); } catch { toast('暂时无法生成洞察，请稍后再试。'); } finally { setLoading(false); } }
-  return <div className="page dilemma-page"><span className="eyebrow">困惑洞察</span><h1>把现在的困惑，<br />放回真实的故事里理解。</h1><p className="page-copy">系统会优先使用与你的问题相关的父亲、母亲材料和测试结果；材料较少时，也会清楚标出不确定的部分。</p><section className="dilemma"><label>我此刻最想弄明白的事<textarea value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="例如：为什么别人一否定我，我就特别难受？" /></label><button className="primary" disabled={loading || !question.trim()} onClick={() => void generate()}>{loading ? '正在整理…' : '生成困惑洞察'} <b>→</b></button></section>{results.length ? <section className="dilemma-history"><h2>历史洞察</h2>{results.map((item) => <article key={item.id}><span>{new Date().toLocaleDateString('zh-CN')}</span><h3>{item.title}</h3><p>{item.body}</p>{item.sourceIds.length > 0 && <details><summary>查看本次引用的材料</summary>{data.materials.filter((material) => item.sourceIds.includes(material.id)).map((material) => <p key={material.id}>· {material.text}</p>)}</details>}</article>)}</section> : <p className="empty-copy">写下一个正在困扰你的真实问题，第一份个性化洞察会保留在这台设备上。</p>}</div>;
+  const [question, setQuestion] = useState(''); const [loading, setLoading] = useState(false); const [historySearch, setHistorySearch] = useState(''); const [historyPage, setHistoryPage] = useState(1); const [expandedInsightIds, setExpandedInsightIds] = useState<Set<string>>(() => new Set());
+  useEffect(() => {
+    const insights = data.insights.filter((item) => !(item.kind === 'dilemma' && item.title === '一次时空洞察'));
+    if (insights.length !== data.insights.length) void persist({ ...data, insights });
+  }, [data, persist]);
+  const results = data.insights.filter((item) => item.kind === 'dilemma' && item.title !== '一次时空洞察');
+  const normalizedSearch = historySearch.trim().toLocaleLowerCase();
+  const matchedResults = results.filter((item) => !normalizedSearch || `${item.title}\n${item.body}`.toLocaleLowerCase().includes(normalizedSearch));
+  const totalPages = Math.max(1, Math.ceil(matchedResults.length / INSIGHTS_PER_PAGE));
+  const currentPage = Math.min(historyPage, totalPages);
+  const pageResults = matchedResults.slice((currentPage - 1) * INSIGHTS_PER_PAGE, currentPage * INSIGHTS_PER_PAGE);
+  function updateHistorySearch(value: string) { setHistorySearch(value); setHistoryPage(1); }
+  function toggleInsight(itemId: string) { setExpandedInsightIds((current) => { const next = new Set(current); if (next.has(itemId)) next.delete(itemId); else next.add(itemId); return next; }); }
+  async function generate() { if (!question.trim()) return; setLoading(true); try { const output = await api.deepInsight(question.trim(), data.materials, data.familyAssessment, data.people, data.profile); const next: Insight = { ...output, id: crypto.randomUUID(), kind: 'dilemma', status: 'confirmed', title: question.trim(), sourceIds: output.sourceIds || [] }; await persist({ ...data, insights: [next, ...data.insights] }); setQuestion(''); setHistoryPage(1); } catch (error) { toast(error instanceof Error ? error.message : '暂时无法生成洞察，请稍后再试。'); } finally { setLoading(false); } }
+  return <div className="page dilemma-page"><span className="eyebrow">困惑洞察</span><h1>回归源头，去理解&洞察你当下的困惑</h1><p className="page-copy">你提供的父母资料越详细，答案越有洞见。</p><section className="dilemma"><label>从原生家庭去洞察<textarea value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="例如：为什么别人一否定我，我就特别难受？" /></label><button className="primary" disabled={loading || !question.trim()} onClick={() => void generate()}>{loading ? '正在整理…' : '从原生家庭去洞察'} <b>→</b></button></section>{results.length ? <section className="dilemma-history"><div className="dilemma-history-head"><h2>历史洞察</h2><label className="insight-search"><input aria-label="搜索历史洞察" value={historySearch} onChange={(event) => updateHistorySearch(event.target.value)} placeholder="搜索问题或答案关键词" /></label></div><p className="insight-result-count">{normalizedSearch ? `找到 ${matchedResults.length} 条相关洞察` : `共 ${matchedResults.length} 条洞察`}</p>{pageResults.length ? pageResults.map((item) => { const isLong = item.body.length > 520; const expanded = expandedInsightIds.has(item.id) || Boolean(normalizedSearch); return <article key={item.id}><section className="insight-question"><span>你的问题</span><h3>{highlightInsightText(item.title, historySearch.trim())}</h3></section><section className="insight-answer"><span>智能洞察</span><p className={isLong && !expanded ? 'is-collapsed' : ''}>{highlightInsightText(item.body, historySearch.trim())}</p>{isLong && <button className="text-button insight-toggle" onClick={() => toggleInsight(item.id)}>{expanded ? '收起洞察' : '展开完整洞察'} <b>{expanded ? '↑' : '↓'}</b></button>}</section></article>; }) : <p className="history-empty">没有找到相关的历史洞察，试试更短的关键词。</p>}{totalPages > 1 && <nav className="insight-pagination" aria-label="历史洞察分页"><button disabled={currentPage === 1} onClick={() => setHistoryPage((page) => Math.max(1, page - 1))}>上一页</button><span>第 {currentPage} / {totalPages} 页</span><button disabled={currentPage === totalPages} onClick={() => setHistoryPage((page) => Math.min(totalPages, page + 1))}>下一页</button></nav>}</section> : <p className="empty-copy">写下一个正在困扰你的真实问题，第一份个性化洞察会保留在这台设备上。</p>}</div>;
 }
