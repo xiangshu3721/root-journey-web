@@ -1,4 +1,4 @@
-import type { BasicProfile, EvidenceType, FamilyPatternAssessment, Insight, JourneyData, Material, MaterialSubject, Person, PersonId } from '../types';
+import type { BasicProfile, DilemmaAnalysis, EvidenceType, FamilyPatternAssessment, Insight, JourneyData, Material, MaterialSubject, Person, PersonId } from '../types';
 import { clearJourney, loadJourney, saveJourney } from './storage';
 
 const fallbackQuestions: Record<PersonId, string[]> = {
@@ -25,10 +25,10 @@ async function generateDeepInsight(question: string, materials: Material[], asse
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ question, materials, assessment, people, profile })
   });
-  const result = await response.json() as { body?: string; sourceIds?: string[]; message?: string };
+  const result = await response.json() as { body?: string; dilemma?: DilemmaAnalysis; sourceIds?: string[]; message?: string };
   if (!response.ok) throw new Error(result.message || '智能洞察暂时无法生成，请稍后再试。');
   if (!result.body) throw new Error('智能洞察未返回有效内容，请稍后再试。');
-  return { body: result.body, sourceIds: result.sourceIds || [] };
+  return { body: result.body, dilemma: result.dilemma, sourceIds: result.sourceIds || [] };
 }
 
 export const api = {
