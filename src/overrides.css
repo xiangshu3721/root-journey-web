@@ -214,6 +214,8 @@
 }
 
 .parent-recorder textarea{scroll-margin-top:20px}
+.dilemma-analysis .dilemma-module{padding:24px 26px}
+@media(max-width:760px){.dilemma-analysis .dilemma-module{padding:20px}}
 .area-picker{display:grid;gap:8px}
 .area-picker-trigger{display:flex;align-items:center;justify-content:space-between;width:100%;border:1px solid #daded5;border-radius:9px;padding:11px;background:#fffefa;color:#2d4033;text-align:left}
 .area-picker-trigger b{color:#52745d;font-size:12px}
