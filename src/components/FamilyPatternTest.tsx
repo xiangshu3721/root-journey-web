@@ -1,70 +1,76 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { FamilyPatternAssessment } from '../types';
 
-export const patternDimensions = [
-  { name: '自我认知', module: '主体性', note: '分辨自己的需要，建立内在参照。', explanation: '你正在练习把外界期待和内心真实的声音分开。' },
-  { name: '自主边界', module: '主体性', note: '为自己做选择，也能表达界限。', explanation: '在关系中照顾自己、表达“不”，仍需要更多练习。' },
-  { name: '情绪觉察', module: '情感力', note: '看见感受，也听见身体的信号。', explanation: '你对情绪已有感受力，可以继续练习更早地回应自己。' },
-  { name: '情感独立', module: '情感力', note: '在连接里保持自己的节奏。', explanation: '重要关系的靠近或疏远，可能仍会明显影响你的内在稳定。' },
-  { name: '倾听理解', module: '关系力', note: '先理解，再决定是否认同。', explanation: '你具备看见不同立场的能力，这是关系中的重要资源。' },
-  { name: '柔和表达', module: '关系力', note: '表达感受、需要，并修复冲突。', explanation: '冲突来临时，给自己一点停顿和表达空间会很有帮助。' },
-  { name: '自我价值感', module: '价值力', note: '不只用表现衡量自己的价值。', explanation: '你正在把自我价值慢慢从外部评价中拿回来。' },
-  { name: '价值实现力', module: '价值力', note: '识别能力，并让价值进入行动。', explanation: '你拥有的能力值得被看见，也值得开始进入现实行动。' }
-] as const;
+type DimensionId = 'self_awareness' | 'autonomy_boundary' | 'emotion_awareness' | 'emotional_independence' | 'listening_understanding' | 'gentle_expression' | 'self_worth' | 'value_realization';
+type ItemType = 'baseline' | 'stress' | 'action' | 'validation';
+type Question = { id: string; section: string; text: string; itemType: ItemType; reverse?: boolean; primaryDimension: DimensionId; secondaryDimensions?: Array<{ dimension: DimensionId; weight: number }> };
 
-const modules = [
-  { title: '认识自己', range: [0, 5], transition: '你正在慢慢看见那个真实的自己。' },
-  { title: '感受自己', range: [6, 11], transition: '接下来，看看你如何面对自己的情绪与关系。' },
-  { title: '连接他人', range: [12, 17], transition: '再看看，你如何与另一个人真正相遇。' },
-  { title: '活出价值', range: [18, 23], transition: '最后，我们回到你成长的那个家。' },
-  { title: '回望来处', range: [24, 28], transition: '' }
+export const patternDimensions: Array<{ id: DimensionId; name: string; module: string; explanation: string }> = [
+  { id: 'self_awareness', name: '自我认知', module: '主体性', explanation: '了解自己是谁、真正想要什么，并能够辨认自己的需要与价值取向。' },
+  { id: 'autonomy_boundary', name: '自主边界', module: '主体性', explanation: '能够为自己做选择并承担责任，同时区分自己与他人的需要、情绪与责任。' },
+  { id: 'emotion_awareness', name: '情绪觉察', module: '情感力', explanation: '能够感知、辨认并理解自己的情绪，以及情绪背后正在发生什么。' },
+  { id: 'emotional_independence', name: '情感独立', module: '情感力', explanation: '在重要关系中既能够保持连接，也能够维持自己的判断、生活重心和内在稳定。' },
+  { id: 'listening_understanding', name: '倾听理解', module: '关系力', explanation: '能够暂时放下自己的立场，理解他人的观点、感受、需要与行为。' },
+  { id: 'gentle_expression', name: '柔和表达', module: '关系力', explanation: '能够真实而有边界地表达自己，并在分歧和冲突中促进理解与修复。' },
+  { id: 'self_worth', name: '自我价值感', module: '价值力', explanation: '对自身价值具有相对稳定的感受，不完全依赖成绩、身份或他人认可。' },
+  { id: 'value_realization', name: '价值实现力', module: '价值力', explanation: '能够识别自己的能力与价值，并逐步将其转化为行动、贡献与现实结果。' }
 ];
 
-const questions = [
-  ['面对重要选择时，我通常能分辨：这是我真正想要的，还是别人希望我这样做。', 0, false], ['我比较清楚哪些事情会让我真正有活力，哪些事情其实并不适合我。', 0, false], ['当没有人给我建议或参照时，我常常不知道自己究竟想要什么。', 0, true],
-  ['即使重要的人不认同，我也能够认真听取意见后，做出属于自己的选择。', 1, false], ['当别人提出让我不舒服或超出我能力范围的要求时，我能够表达“不”。', 1, false], ['为了不让别人失望、生气或觉得我不好，我常会勉强自己答应原本不想答应的事情。', 1, true],
-  ['当自己的情绪开始变化时，我通常能够比较快觉察到。', 2, false], ['我能够分辨自己当下更多是委屈、愤怒、害怕、羞耻、失落，还是其他感受。', 2, false], ['我经常直到失眠、身体不舒服、突然爆发或彻底没劲了，才发现自己其实已经压抑了很久。', 2, true],
-  ['当重要的人暂时冷淡、没有及时回应我时，我虽然会难受，但还能基本保持自己的生活节奏。', 3, false], ['我能够表达自己的情感和需要，同时接受对方并不一定能满足我的所有期待。', 3, false], ['一旦重要关系出现距离，我很容易反复确认、讨好、控制，或者干脆彻底退开。', 3, true],
-  ['别人表达与我不同的观点时，我通常能够先听明白他的意思，再决定是否认同。', 4, false], ['发生冲突时，我会试着理解：对方为什么会这样想、这样反应。', 4, false], ['当别人说到我不认同的地方时，我很容易一边听，一边已经在脑子里准备怎么反驳。', 4, true],
-  ['当我被冒犯或激怒时，大多数情况下我能让自己稍微停一下，而不是立刻反击。', 5, false], ['我能够比较直接地表达自己的感受、需求和不同意见，而不是靠讽刺、指责、冷淡或暗示让别人猜。', 5, false], ['一旦发生较大的冲突，我更容易冷战、回避、翻旧账，或者等对方先低头。', 5, true],
-  ['即使最近没有特别好的成绩、收入或成果，我仍然觉得自己本身是有价值的。', 6, false], ['当别人不认可我时，我可以反思自己，但不会因此彻底否定自己。', 6, false], ['我很容易用收入、成绩、身份、别人是否喜欢我，来判断自己到底够不够好。', 6, true],
-  ['我大致知道自己有哪些能力、经验或特质，是能够真正为别人创造价值的。', 7, false], ['面对真正重要的事情，我通常能够从思考进入行动，而不是一直等到“准备得更好”。', 7, false], ['即使我知道自己有一些能力，我也经常因为觉得“还不够好”，而迟迟不敢真正展示、争取机会或获得回报。', 7, true],
-] as const;
-const climateQuestions = [
-  ['高期待', '成长过程中，我经常感觉家人对我的成绩、表现、懂事、出息或做人方式有比较高的期待。'],
-  ['情感压抑', '在我的家庭里，难过、害怕、委屈、脆弱等感受，通常不太会被充分表达和讨论。'],
-  ['控制干预', '在学习、交友、生活习惯或重要选择上，家人通常会比较深入地介入我的决定。'],
-  ['批评指责', '当我犯错或表现不好时，家人更容易先指出我的问题，而不是先理解我当时发生了什么。'],
-  ['温暖支持', '无论我表现得好不好，我都曾经真实感受到：家里至少有一个人关心我、保护我，愿意在我困难时支持我。']
-] as const;
+const q = (id: string, section: string, text: string, itemType: ItemType, primaryDimension: DimensionId, reverse = false, secondaryDimensions: Question['secondaryDimensions'] = []): Question => ({ id, section, text, itemType, primaryDimension, reverse, secondaryDimensions });
+export const lifeMapQuestions: Question[] = [
+  q('Q01', 'subjectivity', '面对重要选择时，我通常能分辨：这是我真正想要的，还是别人希望我这样做。', 'baseline', 'self_awareness', false, [{ dimension: 'autonomy_boundary', weight: .25 }]),
+  q('Q02', 'subjectivity', '当身边的人都持不同意见时，我很容易怀疑自己原本的感受和判断。', 'stress', 'self_awareness', true, [{ dimension: 'self_worth', weight: .1 }]),
+  q('Q03', 'subjectivity', '我会根据自己真正看重的事，主动调整生活或工作的选择。', 'action', 'self_awareness', false, [{ dimension: 'value_realization', weight: .25 }]),
+  q('Q04', 'subjectivity', '我通常知道什么要求会让我感到不舒服、勉强或超出能力范围。', 'baseline', 'autonomy_boundary', false, [{ dimension: 'self_awareness', weight: .25 }]),
+  q('Q05', 'subjectivity', '当重要的人不认同我的选择时，我虽然会受到影响，但通常仍能判断什么更适合自己。', 'stress', 'autonomy_boundary', false, [{ dimension: 'emotional_independence', weight: .25 }, { dimension: 'self_worth', weight: .1 }]),
+  q('Q06', 'subjectivity', '面对不合理或超出能力范围的要求时，我能够清楚表达“不”。', 'action', 'autonomy_boundary', false, [{ dimension: 'gentle_expression', weight: .25 }]),
+  q('Q07', 'subjectivity', '拒绝别人后，我常会因为内疚而补偿、后悔，或把自己的界限撤回。', 'validation', 'autonomy_boundary', true, [{ dimension: 'emotional_independence', weight: .25 }]),
+  q('Q08', 'emotion', '当自己的情绪开始变化时，我通常能够比较快觉察到。', 'baseline', 'emotion_awareness', false, [{ dimension: 'gentle_expression', weight: .1 }]),
+  q('Q09', 'emotion', '我经常直到失眠、身体不舒服、突然爆发或彻底没劲了，才发现自己已经压抑很久。', 'stress', 'emotion_awareness', true, [{ dimension: 'emotional_independence', weight: .25 }]),
+  q('Q10', 'emotion', '我能够理解一份情绪在提醒我什么需要，而不只是想赶快把它压下去。', 'action', 'emotion_awareness', false, [{ dimension: 'gentle_expression', weight: .25 }]),
+  q('Q11', 'emotion', '在重要关系中，我能保持自己的生活节奏、兴趣和判断。', 'baseline', 'emotional_independence', false, [{ dimension: 'autonomy_boundary', weight: .25 }]),
+  q('Q12', 'emotion', '当重要的人冷淡、误解我或没有及时回应时，我容易整个人被这段关系牵着走。', 'stress', 'emotional_independence', true, [{ dimension: 'self_worth', weight: .25 }]),
+  q('Q13', 'emotion', '我能够直接表达自己的情感和需要，而不是期待对方猜到。', 'action', 'emotional_independence', false, [{ dimension: 'gentle_expression', weight: .25 }]),
+  q('Q14', 'emotion', '即使关系出现距离或变化，我也能在难受之后慢慢回到自己的生活里。', 'validation', 'emotional_independence', false, [{ dimension: 'emotion_awareness', weight: .1 }]),
+  q('Q15', 'relationship', '别人表达与我不同的观点时，我通常能够先听明白他的意思，再决定是否认同。', 'baseline', 'listening_understanding', false, [{ dimension: 'gentle_expression', weight: .25 }]),
+  q('Q16', 'relationship', '发生冲突时，我会试着理解对方为什么会这样想、这样反应。', 'stress', 'listening_understanding', false, [{ dimension: 'emotion_awareness', weight: .25 }]),
+  q('Q17', 'relationship', '即使我不认同对方，我也能把“理解他”与“同意他”区分开。', 'action', 'listening_understanding', false, [{ dimension: 'gentle_expression', weight: .1 }]),
+  q('Q18', 'relationship', '当我被冒犯或激怒时，大多数情况下我能让自己稍微停一下，而不是立刻反击。', 'baseline', 'gentle_expression', false, [{ dimension: 'emotion_awareness', weight: .25 }]),
+  q('Q19', 'relationship', '在冲突压力下，我容易讽刺、指责、冷淡，或干脆什么也不说。', 'stress', 'gentle_expression', true, [{ dimension: 'listening_understanding', weight: .25 }]),
+  q('Q20', 'relationship', '我能够比较直接地表达自己的感受、需求和不同意见。', 'action', 'gentle_expression', false, [{ dimension: 'autonomy_boundary', weight: .1 }]),
+  q('Q21', 'relationship', '一次较大的冲突之后，我愿意并能够尝试修复关系，而不是一直回避或翻旧账。', 'validation', 'gentle_expression', false, [{ dimension: 'listening_understanding', weight: .25 }]),
+  q('Q22', 'value', '即使最近没有特别好的成绩、收入或成果，我仍然觉得自己本身是有价值的。', 'baseline', 'self_worth', false, [{ dimension: 'emotional_independence', weight: .25 }]),
+  q('Q23', 'value', '当别人不认可我或我出现失败时，我很容易彻底否定自己。', 'stress', 'self_worth', true, [{ dimension: 'autonomy_boundary', weight: .25 }]),
+  q('Q24', 'value', '我能在反思不足的同时，仍然把自己当作值得尊重和支持的人。', 'action', 'self_worth', false, [{ dimension: 'value_realization', weight: .1 }]),
+  q('Q25', 'value', '我大致知道自己有哪些能力、经验或特质，能够真正为别人创造价值。', 'baseline', 'value_realization', false, [{ dimension: 'self_awareness', weight: .25 }]),
+  q('Q26', 'value', '面对真正重要的事情，我通常能够从思考进入行动，而不是一直等到准备得更好。', 'action', 'value_realization', false, [{ dimension: 'autonomy_boundary', weight: .1 }]),
+  q('Q27', 'value', '当需要展示自己、争取机会或获得回报时，我常因为不确定而迟迟退开。', 'stress', 'value_realization', true, [{ dimension: 'self_worth', weight: .25 }]),
+  q('Q28', 'value', '即使结果暂时不确定，我也愿意把重要的能力或想法先放进现实中试一试。', 'validation', 'value_realization', false, [{ dimension: 'self_awareness', weight: .1 }])
+];
+const climates = [['高期待', '成长过程中，我经常感觉家人对我的成绩、表现、懂事、出息或做人方式有比较高的期待。'], ['情感压抑', '在我的家庭里，难过、害怕、委屈、脆弱等感受，通常不太会被充分表达和讨论。'], ['控制干预', '在学习、交友、生活习惯或重要选择上，家人通常会比较深入地介入我的决定。'], ['批评指责', '当我犯错或表现不好时，家人更容易先指出我的问题，而不是先理解我当时发生了什么。'], ['温暖支持', '无论我表现得好不好，我都曾经真实感受到：家里至少有一个人关心我、保护我，愿意在我困难时支持我。']] as const;
+const phases = [{ title: '认识自己', start: 0, end: 6, transition: '' }, { title: '感受自己', start: 7, end: 13, transition: '接下来，看看你如何面对自己的情绪与关系。' }, { title: '连接他人', start: 14, end: 20, transition: '再看看，你如何与另一个人真正相遇。' }, { title: '活出价值', start: 21, end: 27, transition: '让我们看看，你如何将价值活进现实。' }, { title: '回望来处', start: 28, end: 32, transition: '最后，我们回到你成长的那个家。' }];
 const options = ['完全不像我', '比较不像我', '有时如此', '比较像我', '非常像我'];
-const score = (answers: Array<number | null>) => patternDimensions.map((_, dimension) => {
-  const values = answers.slice(dimension * 3, dimension * 3 + 3).map((value, index) => value === null ? null : questions[dimension * 3 + index][2] ? 6 - value : value).filter((value): value is number => value !== null);
-  return values.length ? Math.round(((values.reduce((sum, value) => sum + value, 0) / values.length - 1) / 4) * 100) : 0;
-});
-const climateLevel = (value: number, warm = false) => warm ? (value >= 4 ? '较明显' : value >= 3 ? '有一些' : '较少') : (value >= 4 ? '明显' : value >= 3 ? '中等' : '较少');
-const moduleScores = (scores: number[]) => [0, 1, 2, 3].map((index) => Math.round((scores[index * 2] + scores[index * 2 + 1]) / 2));
+const statuses = (score: number) => score >= 85 ? '优势明显' : score >= 75 ? '发展较好' : score >= 65 ? '较为稳定' : score >= 55 ? '有提升空间' : score >= 45 ? '值得关注' : score >= 35 ? '当前成长重点' : '值得深入探索';
+const climateLevel = (value: number) => ['很少', '较少', '一般', '较明显', '明显'][Math.max(0, Math.min(4, value - 1))];
+
+function calculate(answers: Array<number | null>) {
+  const dimensionScores: Record<string, number> = {}; const contextVariances: Record<string, 'low' | 'medium' | 'high'> = {};
+  patternDimensions.forEach(({ id }) => { const entries: Array<{ value: number; weight: number; type: ItemType }> = []; lifeMapQuestions.forEach((item, index) => { const answer = answers[index]; if (answer === null) return; const value = ((item.reverse ? 6 - answer : answer) - 1) / 4; if (item.primaryDimension === id) entries.push({ value, weight: 1, type: item.itemType }); item.secondaryDimensions?.filter((secondary) => secondary.dimension === id).forEach((secondary) => entries.push({ value, weight: secondary.weight, type: item.itemType })); }); const raw = entries.reduce((sum, item) => sum + item.value * item.weight, 0) / entries.reduce((sum, item) => sum + item.weight, 0) * 100; dimensionScores[id] = Math.round(Math.min(92, Math.max(15, 50 + .84 * (raw - 50)))); const contextual = ['baseline', 'stress', 'action', 'validation'].map((type) => entries.filter((item) => item.type === type).reduce((sum, item, _, items) => sum + item.value / items.length, 0) * 100).filter((value) => Number.isFinite(value)); const gap = contextual.length ? Math.max(...contextual) - Math.min(...contextual) : 0; contextVariances[id] = gap >= 25 ? 'high' : gap >= 13 ? 'medium' : 'low'; });
+  const moduleScores: Record<string, number> = {}; ['主体性', '情感力', '关系力', '价值力'].forEach((module) => { const values = patternDimensions.filter((item) => item.module === module).map((item) => dimensionScores[item.id]); moduleScores[module] = Math.round((values[0] + values[1]) / 2); }); return { dimensionScores, moduleScores, contextVariances };
+}
 
 export function FamilyPatternTest({ assessment, startAtTest = false, onComplete, onExit }: { assessment?: FamilyPatternAssessment; startAtTest?: boolean; onComplete?: (next: FamilyPatternAssessment) => void | Promise<void>; onContinueParents?: () => void; onExit?: () => void }) {
-  const [mode, setMode] = useState<'intro' | 'test'>(startAtTest ? 'test' : 'intro');
-  const [step, setStep] = useState(0);
-  const [answers, setAnswers] = useState<Array<number | null>>(assessment?.answers?.length === 29 ? assessment.answers : Array(29).fill(null));
-  const [finishing, setFinishing] = useState(false);
-  const question = step < 24 ? questions[step] : climateQuestions[step - 24];
-  const questionText = step < 24 ? question[0] : question[1];
-  const group = modules.find((item) => step >= item.range[0] && step <= item.range[1])!;
+  const [mode, setMode] = useState<'intro' | 'test'>(startAtTest ? 'test' : 'intro'); const [step, setStep] = useState(0); const [answers, setAnswers] = useState<Array<number | null>>(assessment?.assessmentVersion === '2.0' ? assessment.answers : Array(33).fill(null)); const [finishing, setFinishing] = useState(false); const phase = phases.find((item) => step >= item.start && step <= item.end)!; const abilityQuestion = step < 28 ? lifeMapQuestions[step] : undefined; const climateQuestion = step >= 28 ? climates[step - 28] : undefined; const text = abilityQuestion ? abilityQuestion.text : climateQuestion![1];
   useEffect(() => { window.scrollTo(0, 0); }, [mode, step]);
-  async function complete() { if (finishing) return; setFinishing(true); const next = { answers, scores: score(answers), familyClimate: answers.slice(24), completedAt: new Date().toISOString() }; try { await onComplete?.(next); } finally { setFinishing(false); } }
-  if (mode === 'intro') return <section className="assessment-intro life-assessment-intro"><span>觉塑 · 生命成长地图测评</span><h1>用 29 个问题，看见你此刻的生命力量。</h1><p>先看见自己如何生活、感受、连接与创造，最后再轻轻回望那个家。</p><small>请按真实、惯常的状态作答，没有标准答案。本测试用于自我探索，不是医学或心理诊断。</small><button className="primary" onClick={() => setMode('test')}>开始探索 <b>→</b></button></section>;
-  return <section className="assessment-flow life-assessment-flow"><header><div><span>{group.title}</span><b>{step + 1} / 29</b></div>{startAtTest && <button className="text-button" onClick={onExit}>暂时退出</button>}</header>{group.transition && step === group.range[1] && <p className="section-transition">{group.transition}</p>}<div className="test-progress"><i style={{ width: `${((step + 1) / 29) * 100}%` }} /></div>{step === 24 && <div className="family-switch"><span>回到你长大的那个家</span><p>这不是评价父母好坏，只是回忆那个家庭整体给你的感受。</p></div>}<p className="question-domain">{step < 24 ? patternDimensions[question[1] as number].name : '家庭氛围'}</p><h2>{questionText}</h2><div className="answer-list">{options.map((option, index) => <button key={option} className={answers[step] === index + 1 ? 'selected' : ''} onClick={() => setAnswers((old) => old.map((value, itemIndex) => itemIndex === step ? index + 1 : value))}><b>{index + 1}</b>{option}</button>)}</div><div className="test-actions"><button className="text-button" disabled={step === 0} onClick={() => setStep((value) => value - 1)}>上一题</button>{step === 28 ? <button className="primary" disabled={finishing || answers.some((value) => value === null)} onClick={() => void complete()}>{finishing ? '正在生成生命地图…' : '查看生命地图'} <b>→</b></button> : <button className="primary" disabled={answers[step] === null} onClick={() => setStep((value) => value + 1)}>下一题 <b>→</b></button>}</div></section>;
+  async function complete() { if (finishing) return; setFinishing(true); const calculated = calculate(answers); const next: FamilyPatternAssessment = { answers, answerMap: Object.fromEntries([...lifeMapQuestions.map((item, index) => [item.id, answers[index]]), ...climates.map(([name], index) => [`F${index + 1}-${name}`, answers[index + 28]])]), scores: patternDimensions.map((item) => calculated.dimensionScores[item.id]), familyClimate: answers.slice(28), completedAt: new Date().toISOString(), assessmentVersion: '2.0', scoringVersion: '2.0.1', dimensionScores: calculated.dimensionScores, moduleScores: calculated.moduleScores, dimensionStatuses: Object.fromEntries(patternDimensions.map((item) => [item.id, statuses(calculated.dimensionScores[item.id])])), contextVariances: calculated.contextVariances }; try { await onComplete?.(next); } finally { setFinishing(false); } }
+  if (mode === 'intro') return <section className="assessment-intro life-assessment-intro"><span>觉塑 · 生命成长地图测评</span><h1>用 33 个问题，看见你此刻的生命力量。</h1><p>先看见自己如何生活、感受、连接与创造，最后再轻轻回望那个家。</p><small>请按真实、惯常的状态作答，没有标准答案。本测试用于自我探索，不是医学或心理诊断。</small><button className="primary" onClick={() => setMode('test')}>开始探索 <b>→</b></button></section>;
+  return <section className="assessment-flow life-assessment-flow"><header><div><span>{phase.title}</span><b>{step - phase.start + 1} / {phase.end - phase.start + 1}</b></div>{startAtTest && <button className="text-button" onClick={onExit}>暂时退出</button>}</header>{phase.transition && step === phase.start && <p className="section-transition">{phase.transition}</p>}<div className="test-progress"><i style={{ width: `${((step + 1) / 33) * 100}%` }} /></div>{step === 28 && <div className="family-switch"><span>回到你长大的那个家</span><p>这不是评价父母好坏，只是回忆那个家庭整体给你的感受。</p></div>}<p className="question-domain">{abilityQuestion ? patternDimensions.find((dimension) => dimension.id === abilityQuestion.primaryDimension)?.name : '家庭氛围'}</p><h2>{text}</h2><div className="answer-list">{options.map((option, index) => <button key={option} className={answers[step] === index + 1 ? 'selected' : ''} onClick={() => setAnswers((current) => current.map((value, itemIndex) => itemIndex === step ? index + 1 : value))}><b>{index + 1}</b>{option}</button>)}</div><div className="test-actions"><button className="text-button" disabled={step === 0} onClick={() => setStep((value) => value - 1)}>上一题</button>{step === 32 ? <button className="primary" disabled={finishing || answers.some((answer) => answer === null)} onClick={() => void complete()}>{finishing ? '正在生成生命地图…' : '查看生命地图'} <b>→</b></button> : <button className="primary" disabled={answers[step] === null} onClick={() => setStep((value) => value + 1)}>下一题 <b>→</b></button>}</div></section>;
 }
 
 export function AssessmentResult({ assessment, onRestart }: { assessment: FamilyPatternAssessment; onRestart?: () => void }) {
-  const scores = assessment.scores.length === 8 ? assessment.scores : Array(8).fill(0);
-  const totals = moduleScores(scores); const climate = assessment.familyClimate || assessment.answers.slice(24, 29);
-  const modulesWithCopy = [['主体性', '自我的诞生'], ['情感力', '情绪情感成长'], ['关系力', '止观与沟通'], ['价值力', '自我价值实现']];
-  const lowest = scores.map((value, index) => ({ ...patternDimensions[index], value })).sort((a, b) => a.value - b.value).slice(0, 3);
-  return <section className="life-map"><div className="life-map-head"><div><span>觉塑 · 生命成长地图</span><h1>我的生命成长地图</h1><p>一份基于当下自我认知与成长状态的温和指引</p></div>{onRestart && <button className="text-button" onClick={onRestart}>重新测试</button>}</div><section className="life-summary"><h2>我的四大生命能力总览</h2><div className="life-module-grid">{modulesWithCopy.map(([name, sub], index) => <article key={name} className={`life-module module-${index}`}><span>{sub}</span><h3>{name}</h3><div className="score-orbit"><strong>{totals[index]}</strong><small>/100</small></div><p>{totals[index] >= 70 ? '你的优势领域' : totals[index] >= 50 ? '有提升空间' : '需要重点关注'}</p></article>)}</div></section><div className="life-map-grid"><section className="life-radar-card"><h2>核心能力雷达图 <small>8维</small></h2><Radar scores={scores} /></section><section className="life-findings"><h2>关键发现</h2>{lowest.map((item) => <article key={item.name}><b>{item.name}<em>{item.value}</em></b><p>{item.explanation}</p></article>)}</section></div><div className="life-map-grid lower family-only"><section className="family-climate"><h2>家庭氛围关键词</h2><p>这是你成长感受到的主要体验，不代表对任何人的评价。</p>{climateQuestions.map(([name], index) => <div key={name}><span>{name}</span><b>{climateLevel(climate[index] || 3, index === 4)}</b></div>)}</section></div></section>;
+  const calculated = assessment.dimensionScores && assessment.moduleScores ? { dimensionScores: assessment.dimensionScores, moduleScores: assessment.moduleScores, contextVariances: assessment.contextVariances || {} } : calculate(assessment.answers); const dimensions = patternDimensions.map((item) => ({ ...item, score: calculated.dimensionScores[item.id], status: statuses(calculated.dimensionScores[item.id]) })); const sorted = [...dimensions].sort((a, b) => b.score - a.score); const highest = sorted.slice(0, 2); const lowest = [...sorted].reverse()[0]; const largestGap = sorted[0].score - lowest.score;
+  const findings = [`${highest.map((item) => item.name).join('与')}是你目前较突出的能力组合，可以成为继续成长的资源。`, largestGap >= 15 ? `${sorted[0].name}与${lowest.name}之间存在明显落差，现实处境不同可能会让你呈现出不同状态。` : '你的八项能力整体较为均衡，更适合从现实生活中反复出现的具体困惑继续深入探索。', calculated.contextVariances[lowest.id] === 'high' ? `${lowest.name}更容易受情境影响，压力出现时值得给自己更多停顿和支持。` : `${lowest.name}是当前相对更值得继续发展的能力，提升它可能同时影响你的生活体验与关系质量。`];
+  return <section className="life-map v2"><div className="life-map-head"><div><span>觉塑 · 生命成长地图 V2</span><h1>我的生命成长地图</h1><p>分数是对当前生命能力发展状态的综合估计，不是诊断或评价。</p></div>{onRestart && <button className="text-button" onClick={onRestart}>重新测试</button>}</div><section className="life-summary"><h2>我的四大生命能力</h2><div className="life-module-grid">{['主体性', '情感力', '关系力', '价值力'].map((name, index) => <article key={name} className={`life-module module-${index}`}><h3>{name}</h3><div className="score-orbit"><strong>{calculated.moduleScores[name]}</strong></div><p>{statuses(calculated.moduleScores[name])}</p></article>)}</div></section><section className="life-radar-card"><h2>8维核心能力雷达图</h2><Radar scores={dimensions.map((item) => item.score)} /></section><section className="dimension-list"><h2>八项生命能力</h2>{dimensions.map((item) => <article key={item.id}><div><b>{item.name}</b><span>{item.explanation}</span></div><strong>{item.score}<small>{item.status}</small></strong></article>)}</section><section className="life-findings"><h2>关键发现</h2>{findings.map((item, index) => <article key={item}><b>{String(index + 1).padStart(2, '0')}</b><p>{item}</p></article>)}</section><section className="life-structure"><h2>我的生命结构</h2><article><b>{highest.map((item) => item.name).join(' × ')}</b><p>这是你当前相对优势的能力组合，可以成为你面对现实选择与关系挑战时的资源。</p></article><article><b>{largestGap >= 15 ? `${sorted[0].name} ${sorted[0].score} ↔ ${lowest.name} ${lowest.score}` : '整体发展较为均衡'}</b><p>{largestGap >= 15 ? `你在${sorted[0].name}上的稳定程度，明显高于${lowest.name}。` : '当前没有非常突出的短板，更适合从具体困惑中继续了解自己。'}</p></article><article><b>{lowest.name}</b><p>这是当前相对更值得继续发展的能力，提升以后可能带来更广泛的改变。</p></article></section><section className="family-climate"><h2>家庭氛围关键词</h2><p>这些是你对成长环境的主观体验，不代表对任何家庭成员的评价或诊断。</p>{climates.map(([name], index) => <div key={name}><span>{name}</span><b>{climateLevel(assessment.familyClimate?.[index] || 3)}</b></div>)}</section></section>;
 }
 
 export function Radar({ scores }: { scores: number[] }) { const center = 145; const radius = 91; const point = (index: number, value: number) => { const angle = -Math.PI / 2 + index * Math.PI / 4; return `${center + Math.cos(angle) * radius * value},${center + Math.sin(angle) * radius * value}`; }; const polygon = (value: number) => scores.map((_, index) => point(index, value)).join(' '); const values = scores.map((value, index) => point(index, value / 100)).join(' '); return <div className="radar radar-eight"><svg viewBox="0 0 290 290" role="img" aria-label="八维核心能力雷达图">{[.25, .5, .75, 1].map((value) => <polygon key={value} points={polygon(value)} className="radar-grid" />)}{scores.map((_, index) => { const [x, y] = point(index, 1).split(','); return <line key={index} x1={center} y1={center} x2={x} y2={y} className="radar-axis" />; })}<polygon points={values} className="radar-shape" />{scores.map((value, index) => { const [x, y] = point(index, value / 100).split(','); return <circle key={index} cx={x} cy={y} r="3.8" className="radar-point" />; })}</svg>{patternDimensions.map((dimension, index) => { const [x, y] = point(index, 1.27).split(','); return <span key={dimension.name} style={{ left: `${Number(x) / 2.9}%`, top: `${Number(y) / 2.9}%` }}>{dimension.name}<b>{scores[index]}</b></span>; })}</div>; }

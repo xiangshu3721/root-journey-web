@@ -36,9 +36,9 @@ export function ParentArchive({ data, persist, toast }: { data: JourneyData; per
   function focusRecorder() { window.requestAnimationFrame(() => recorderRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })); window.setTimeout(() => recorderRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 180); }
   function switchPerson(id: PersonId) { setPersonId(id); setText(''); setQuestion(null); setQuestionText(''); setSuggestedIds(new Set()); setShowBasics(false); }
   return <div className="page parent-archive">
-    <span className="eyebrow">父母档案</span><h1>随时记录，<br />关于你父母的点滴回忆。</h1>
+    <span className="eyebrow">父母档案</span><h1>随时记录，关于你父母的点滴回忆。</h1>
     <div className="person-tabs">{(['mother', 'father'] as PersonId[]).map((id) => <button key={id} className={personId === id ? 'selected' : ''} onClick={() => switchPerson(id)}><i className={id}>{data.people[id].avatar}</i>{id === 'mother' ? '母亲档案' : '父亲档案'}</button>)}</div>
-    <section className="parent-identity"><i className={personId}>{person.avatar}</i><div><b>{person.nickname}</b><span>信息可随时补充，不填不会影响自由记录。</span></div><div className="identity-actions"><button className="text-button" onClick={() => setShowBasics((current) => !current)}>{showBasics ? '收起基础信息' : '添加 / 修改基础信息'}</button></div></section>
+    <section className="parent-identity"><i className={personId}>{person.avatar}</i><div className="identity-copy"><b>{person.nickname}</b><span>信息可随时补充，不填不会影响自由记录。</span></div><div className="identity-actions"><button className="text-button" aria-expanded={showBasics} onClick={() => setShowBasics((current) => !current)}>{showBasics ? '收起基础信息' : '添加 / 修改基础信息'}</button></div></section>
     {showBasics && <section className="parent-basics"><div className="basic-form"><h2>{personId === 'mother' ? '母亲的基础信息' : '父亲的基础信息'}</h2><div>
       <label>称呼<input value={person.nickname} onChange={(event) => update('nickname', event.target.value)} /></label>
       <label>出生日期<input type="date" value={normalizeDate(person.birthDate)} onChange={(event) => update('birthDate', event.target.value)} /></label>
