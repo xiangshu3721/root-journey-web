@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { FamilyPatternAssessment } from '../types';
 
 type DimensionId = 'self_awareness' | 'autonomy_boundary' | 'emotion_awareness' | 'emotional_independence' | 'listening_understanding' | 'gentle_expression' | 'self_worth' | 'value_realization';
