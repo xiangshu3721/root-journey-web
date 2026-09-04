@@ -1,85 +1,29 @@
 'use strict';
-
 const DEFAULT_ORIGIN = 'https://xiangshu3721.github.io';
-const json = (statusCode, body, origin) => ({
-  statusCode,
-  headers: {
-    'content-type': 'application/json; charset=utf-8',
-    'access-control-allow-origin': origin,
-    'access-control-allow-methods': 'POST, OPTIONS',
-    'access-control-allow-headers': 'content-type',
-    vary: 'Origin'
-  },
-  body: JSON.stringify(body)
+const json = (statusCode, body, origin) => ({ statusCode, headers: { 'content-type': 'application/json; charset=utf-8', 'access-control-allow-origin': origin, 'access-control-allow-methods': 'POST, OPTIONS', 'access-control-allow-headers': 'content-type', vary: 'Origin' }, body: JSON.stringify(body) });
+const safeText = (value, limit = 300) => typeof value === 'string' ? value.trim().slice(0, limit) : '';
+const parseBody = (event) => { const raw = event?.body || '{}'; return typeof raw === 'string' ? JSON.parse(event?.isBase64Encoded ? Buffer.from(raw, 'base64').toString('utf8') : raw) : raw; };
+const originFor = (event) => { const origin = event?.headers?.origin || event?.headers?.Origin || ''; const allowed = (process.env.ALLOWED_ORIGINS || DEFAULT_ORIGIN).split(',').map((item) => item.trim()); return allowed.includes(origin) ? origin : allowed[0]; };
+const parseJson = (text) => { const match = text.match(/\{[\s\S]*\}/); try { return match ? JSON.parse(match[0]) : null; } catch { return null; } };
+const hasCrisis = (text) => /自杀|自残|不想活|结束生命|伤害自己|伤害他人/.test(text);
+const evidence = (values, limit = 4) => Array.isArray(values) ? values.slice(0, limit).map((item) => ({ sourceType: safeText(item?.sourceType, 40), sourceId: safeText(item?.sourceId, 120), fact: safeText(item?.fact, 220), timeContext: ['current', 'past', 'early'].includes(item?.timeContext) ? item.timeContext : undefined })).filter((item) => item.fact) : [];
+const safeInsight = (value, crisis) => {
+  const text = (input, limit = 260) => safeText(input, limit); const chain = value?.patternChain || {}; const modules = Array.isArray(value?.growthModules) ? value.growthModules.slice(0, 4).map((m) => ({ id: ['agency', 'emotion', 'relationship', 'value'].includes(m?.id) ? m.id : '', name: text(m?.name, 20), association: Math.max(0, Math.min(100, Number(m?.association) || 0)), role: ['核心课题', '伴随课题', '辅助课题', '深层课题'].includes(m?.role) ? m.role : '辅助课题', direction: text(m?.direction, 140) })).filter((m) => m.id && m.name && m.direction) : [];
+  const required = ['trigger', 'interpretation', 'automaticResponse', 'result', 'oldRule']; if (!text(value?.coreBlock) || required.some((key) => !text(chain[key])) || modules.length !== 4 || new Set(modules.map((m) => m.id)).size !== 4 || modules.reduce((sum, m) => sum + m.association, 0) !== 100) return null;
+  const repetition = value?.repetition || {}, origin = value?.origin || {}, next = value?.nextGrowth || {}; const responses = Array.isArray(value?.newResponses) ? value.newResponses.slice(0, 3).map((item) => ({ type: ['awareness', 'experiment', 'reflection'].includes(item?.type) ? item.type : '', title: text(item?.title, 20), action: text(item?.action, 180) })).filter((item) => item.type && item.title && item.action) : [];
+  if (responses.length !== 3 || new Set(responses.map((item) => item.type)).size !== 3 || !text(next.theme) || !text(next.why)) return null;
+  const repEvidence = evidence(repetition.evidence); const originEvidence = evidence(origin.evidence); const repetitionStatus = ['confirmed', 'possible', 'insufficient_evidence'].includes(repetition.status) ? repetition.status : 'insufficient_evidence'; const originStatus = ['supported', 'insufficient_evidence'].includes(origin.status) ? origin.status : 'insufficient_evidence'; if (repetitionStatus === 'confirmed' && repEvidence.length < 2) return null; if (originStatus === 'supported' && !originEvidence.length) return null;
+  return { coreBlock: text(value.coreBlock, 320), patternChain: { trigger: text(chain.trigger), interpretation: text(chain.interpretation), emotions: Array.isArray(chain.emotions) ? chain.emotions.slice(0, 3).map((x) => text(x, 30)).filter(Boolean) : [], emotionalNeeds: Array.isArray(chain.emotionalNeeds) ? chain.emotionalNeeds.slice(0, 3).map((x) => text(x, 30)).filter(Boolean) : [], automaticResponse: text(chain.automaticResponse), result: text(chain.result), oldRule: text(chain.oldRule) }, repetition: { status: repetitionStatus, summary: text(repetition.summary, 280), adaptiveFunction: text(repetition.adaptiveFunction, 180) || undefined, evidence: repEvidence, commonPattern: text(repetition.commonPattern, 140) || undefined }, origin: { status: originStatus, relationType: ['direct', 'reverse', 'compensation', 'unknown'].includes(origin.relationType) ? origin.relationType : 'unknown', summary: text(origin.summary, 300), evidence: originEvidence, caveat: text(origin.caveat, 180) || '这只是基于现有材料的暂时理解，仍值得继续核对。' }, modules, newResponses: responses, nextGrowth: { theme: text(next.theme, 180), why: text(next.why, 240), openQuestions: Array.isArray(next.openQuestions) ? next.openQuestions.slice(0, 3).map((x) => text(x, 160)).filter(Boolean) : [] }, meta: { insightConfidence: ['low', 'medium', 'high'].includes(value?.meta?.insightConfidence) ? value.meta.insightConfidence : 'low', familyLinkStrength: ['none', 'weak', 'moderate', 'strong'].includes(value?.meta?.familyLinkStrength) ? value.meta.familyLinkStrength : 'none', deepDiveRecommended: Boolean(value?.meta?.deepDiveRecommended), suppressCommercialCTA: crisis || Boolean(value?.meta?.suppressCommercialCTA) } };
+};
+const fallbackInsight = (question, crisis) => ({
+  coreBlock: `你现在想更看懂的，是「${safeText(question, 90)}」背后，自己真正需要什么以及下一步如何选择。`,
+  patternChain: { trigger: '当下这件让你犹豫或困扰的事', interpretation: '我需要先找到一个足够确定、不会出错的答案', emotions: ['犹豫', '不安'], emotionalNeeds: ['确定感', '自主'], automaticResponse: '反复思考、暂缓决定，或更多询问外部意见', result: '短期降低了不确定感，长期却让自己更难开始行动', oldRule: '重要选择最好先确保安全、不要轻易出错' },
+  repetition: { status: 'insufficient_evidence', summary: '目前只有这一次当下困惑，还不足以确认这是否是跨场景重复的模式。', evidence: [] },
+  origin: { status: 'insufficient_evidence', relationType: 'unknown', summary: '当前资料还不足以支持“这个模式从哪里形成”的判断。与其猜测，不如先保留这个问题。', evidence: [], caveat: '后续可结合一个过去的类似片段或家庭材料继续核对。' },
+  modules: [{ id: 'agency', name: '主体性', association: 40, role: '核心课题', direction: '从寻找外部正确答案，走向形成自己的判断。' }, { id: 'emotion', name: '情感力', association: 25, role: '伴随课题', direction: '看见不安，而不急着消除它。' }, { id: 'relationship', name: '关系力', association: 15, role: '辅助课题', direction: '在参考他人意见时仍保留自己的位置。' }, { id: 'value', name: '价值力', association: 20, role: '深层课题', direction: '把选择看成尝试，而不是对自我价值的判决。' }],
+  newResponses: [{ type: 'awareness', title: '先看见', action: '下次想立刻寻找答案时，先写下此刻最担心的后果。' }, { type: 'experiment', title: '试一次不同反应', action: '先做一个可撤回的小选择，再观察真实结果。' }, { type: 'reflection', title: '事后这样复盘', action: '复盘结果如何，而不是评价自己选得对不对。' }],
+  nextGrowth: { theme: '从反复寻找确定答案，走向建立自己的判断，并练习承受选择的不确定性。', why: '这个课题会影响你面对选择时能否逐步行动。', openQuestions: ['当别人不同意你时，你最担心失去什么？', '过去有没有一次类似的犹豫？', '什么条件能让你把下一步缩小到可尝试的范围？'] },
+  meta: { insightConfidence: 'low', familyLinkStrength: 'none', deepDiveRecommended: false, suppressCommercialCTA: crisis }
 });
-
-const safeText = (value, limit) => typeof value === 'string' ? value.trim().slice(0, limit) : '';
-const parseBody = (event) => {
-  const raw = event?.body || '{}';
-  const body = event?.isBase64Encoded ? Buffer.from(raw, 'base64').toString('utf8') : raw;
-  return typeof body === 'string' ? JSON.parse(body) : body;
-};
-const originFor = (event) => {
-  const origin = event?.headers?.origin || event?.headers?.Origin || '';
-  const allowed = (process.env.ALLOWED_ORIGINS || DEFAULT_ORIGIN).split(',').map((item) => item.trim());
-  return allowed.includes(origin) ? origin : allowed[0];
-};
-const parentContext = (person) => ({
-  name: safeText(person?.name, 80), nickname: safeText(person?.nickname, 80), birthDate: safeText(person?.birthDate, 40), birthplace: safeText(person?.birthplace, 120), growthPlace: safeText(person?.growthPlace, 120), education: safeText(person?.education, 180), work: safeText(person?.work, 180), marriage: safeText(person?.marriage, 220), wealth: safeText(person?.wealth, 180), majorIllness: safeText(person?.majorIllness, 180), setbacks: safeText(person?.setbacks, 500), lifeEvents: safeText(person?.lifeEvents, 700), keyInteractions: safeText(person?.keyInteractions, 700)
-});
-const parseModelJson = (text) => {
-  const match = text.match(/\{[\s\S]*\}/);
-  if (!match) return null;
-  try { return JSON.parse(match[0]); } catch { return null; }
-};
-const safeDilemma = (value) => {
-  const text = (input, limit = 240) => safeText(input, limit);
-  const modules = Array.isArray(value?.modules) ? value.modules.slice(0, 4).map((module) => ({
-    id: ['agency', 'emotion', 'relationship', 'value'].includes(module?.id) ? module.id : 'agency', name: text(module?.name, 20), association: Math.max(0, Math.min(100, Number(module?.association) || 0)), role: ['核心课题', '伴随课题', '辅助课题', '深层课题'].includes(module?.role) ? module.role : '辅助课题', direction: text(module?.direction, 120)
-  })).filter((module) => module.name && module.direction) : [];
-  const mode = value?.mode || {};
-  const requiredMode = ['event', 'interpretation', 'emotion', 'need', 'response', 'result', 'belief'];
-  const expectedIds = ['agency', 'emotion', 'relationship', 'value'];
-  if (!text(value?.coreInsight) || modules.length !== 4 || requiredMode.some((key) => !text(mode[key])) || new Set(modules.map((module) => module.id)).size !== 4) return null;
-  const totalAssociation = modules.reduce((sum, module) => sum + module.association, 0);
-  if (totalAssociation !== 100) return null;
-  return {
-    coreInsight: text(value.coreInsight, 300), mode: Object.fromEntries(requiredMode.map((key) => [key, text(mode[key], 120)])),
-    formation: { connection: text(value?.formation?.connection, 320), clues: Array.isArray(value?.formation?.clues) ? value.formation.clues.slice(0, 4).map((clue) => ({ label: text(clue?.label, 40), text: text(clue?.text, 160) })).filter((clue) => clue.label && clue.text) : [] },
-    modules: expectedIds.map((id) => modules.find((module) => module.id === id)), newChoice: Array.isArray(value?.newChoice) ? value.newChoice.slice(0, 4).map((item) => text(item, 150)).filter(Boolean) : [], growthFocus: text(value?.growthFocus, 180)
-  };
-};
-const dilemmaBody = (dilemma) => `${dilemma.coreInsight}\n\n自动模式：${Object.values(dilemma.mode).join(' → ')}\n\n成长课题：${dilemma.modules.map((module) => `${module.name} ${module.association}%`).join('；')}\n\n新的选择：${dilemma.newChoice.join('；')}\n\n持续练习：${dilemma.growthFocus}`;
-
-exports.main_handler = async (event) => {
-  const origin = originFor(event);
-  if (event?.httpMethod === 'OPTIONS') return json(204, {}, origin);
-  if (event?.httpMethod !== 'POST') return json(405, { message: '仅支持 POST 请求。' }, origin);
-
-  try {
-    const input = parseBody(event);
-    const question = safeText(input.question, 700);
-    if (!question) return json(400, { message: '请先写下你想洞察的问题。' }, origin);
-    if (JSON.stringify(input).length > 150000) return json(413, { message: '本次材料过多，请精简后再试。' }, origin);
-    if (!process.env.DEEPSEEK_API_KEY) return json(500, { message: '智能洞察服务尚未配置。' }, origin);
-
-    const materials = Array.isArray(input.materials) ? input.materials.filter((item) => !item?.isRaw).slice(0, 60).map((item) => ({ id: safeText(item.id, 120), personId: safeText(item.personId, 20), section: safeText(item.section, 100), text: safeText(item.text, 600), evidenceType: safeText(item.evidenceType, 30) })) : [];
-    const profile = input.profile ? { gender: safeText(input.profile.gender, 30), birthYear: safeText(input.profile.birthYear, 20), birthplace: safeText(input.profile.birthplace, 120), siblings: safeText(input.profile.siblings, 200), lifeStages: Array.isArray(input.profile.lifeStages) ? input.profile.lifeStages.map((item) => safeText(item, 120)).filter(Boolean).slice(0, 12) : [] } : null;
-    const people = input.people || {};
-    const reflections = Array.isArray(input.reflections) ? input.reflections.map((item) => safeText(item, 500)).filter(Boolean).slice(0, 2) : [];
-    const prompt = `你是一位温和、可靠的心理教育陪伴者。请把用户的当下困惑翻译成其正在成长的生命课题。综合当前问题、补充回答、个人背景、关系模式测试、父母资料与已录入材料，但不要把所有问题归因于原生家庭。\n\n只能依据提供信息提出“可能、也许、值得核对”的理解，不编造父母经历、动机或用户未描述的事实。不要诊断、贴人格标签、归罪、说教或医疗建议。父母与家庭的关联必须使用克制的概率表述，并且只有存在具体线索时才写入 formation.clues；没有线索时 clues 返回 []，formation.connection 只写一条不归因的审慎说明。\n\n必须只输出一个合法 JSON 对象，不能有 Markdown、代码围栏或对象外文字。结构必须完全符合：\n{\n  "coreInsight":"一句直接、温和的核心洞察，50-110字",\n  "mode":{"event":"发生了什么","interpretation":"我怎么理解","emotion":"我有什么感受","need":"我真正需要什么","response":"我的自动反应","result":"最后的结果","belief":"被强化的旧信念"},\n  "formation":{"connection":"与过去资料的审慎关联，90-180字","clues":[{"label":"线索来源，如父亲档案或家庭氛围","text":"只写已提供资料中可核对的简短内容"}]},\n  "modules":[\n    {"id":"agency","name":"主体性","association":0,"role":"核心课题或伴随课题或辅助课题或深层课题","direction":"从外部评价回到内在判断等具体方向"},\n    {"id":"emotion","name":"情感力","association":0,"role":"核心课题或伴随课题或辅助课题或深层课题","direction":"允许和承载情绪等具体方向"},\n    {"id":"relationship","name":"关系力","association":0,"role":"核心课题或伴随课题或辅助课题或深层课题","direction":"区分意见与否定、表达需要等具体方向"},\n    {"id":"value","name":"价值力","association":0,"role":"核心课题或伴随课题或辅助课题或深层课题","direction":"将价值感从外部评价中拿回来等具体方向"}\n  ],\n  "newChoice":["下一次可以尝试的第一步","第二步","第三步"],\n  "growthFocus":"一句可持续练习的成长方向"\n}\n\n四个 modules 必须完整出现且 association 为 0-100 的整数，总和为 100；它们表示本次困惑的关联度，不是用户能力分数。mode 每项短于50字。newChoice 为 3 条、低风险、可自行调整的现实动作。\n\n当前问题：${question}\n\n补充回答：${JSON.stringify(reflections)}\n\n用户背景：${JSON.stringify(profile)}\n\n关系模式测试：${JSON.stringify(input.assessment || null)}\n\n父亲基础信息：${JSON.stringify(parentContext(people.father))}\n\n母亲基础信息：${JSON.stringify(parentContext(people.mother))}\n\n已录入材料：${JSON.stringify(materials)}`;
-    const response = await fetch(process.env.DEEPSEEK_API_URL || 'https://api.deepseek.com/chat/completions', {
-      method: 'POST',
-      headers: { authorization: `Bearer ${process.env.DEEPSEEK_API_KEY}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ model: process.env.DEEPSEEK_MODEL || 'deepseek-chat', temperature: 0.55, messages: [{ role: 'user', content: prompt }] })
-    });
-    if (!response.ok) return json(502, { message: '智能洞察暂时无法生成，请稍后再试。' }, origin);
-    const result = await response.json();
-    const raw = result?.choices?.[0]?.message?.content?.trim();
-    const dilemma = safeDilemma(parseModelJson(raw || ''));
-    if (!dilemma) return json(502, { message: '智能洞察未返回有效内容，请稍后再试。' }, origin);
-    return json(200, { body: dilemmaBody(dilemma), dilemma, sourceIds: materials.map((item) => item.id) }, origin);
-  } catch {
-    return json(400, { message: '请求格式不正确，请稍后再试。' }, origin);
-  }
-};
+const bodyFor = (d) => `${d.coreBlock}\n\n成长课题：${d.nextGrowth.theme}`;
+exports.main_handler = async (event) => { const origin = originFor(event); if (event?.httpMethod === 'OPTIONS') return json(204, {}, origin); if (event?.httpMethod !== 'POST') return json(405, { message: '仅支持 POST 请求。' }, origin); try { const input = parseBody(event); const question = safeText(input.question, 700); if (!question) return json(400, { message: '请先写下你想洞察的问题。' }, origin); if (JSON.stringify(input).length > 150000) return json(413, { message: '本次材料过多，请精简后再试。' }, origin); if (!process.env.DEEPSEEK_API_KEY) return json(500, { message: '智能洞察服务尚未配置。' }, origin); const materials = Array.isArray(input.materials) ? input.materials.filter((item) => !item?.isRaw).slice(0, 60).map((item) => ({ id: safeText(item.id, 120), sourceType: safeText(item.personId, 20), section: safeText(item.section, 100), content: safeText(item.text, 600) })) : []; const reflections = Array.isArray(input.reflections) ? input.reflections.slice(0, 2).map((item) => safeText(item, 500)).filter(Boolean) : []; const crisis = hasCrisis(question); const shouldClarify = !input.forceGenerate && reflections.length < 2 && (question.length < 24 || (!materials.length && !reflections.length)); if (shouldClarify) return json(200, { status: 'clarification_needed', clarification: { question: question.length < 24 ? '这件事通常在什么情境里发生？当时你最在意、最害怕失去的是什么？' : '为了判断它可能从哪里来，你愿意补充一个过去出现过类似感受或反应的具体片段吗？' } }, origin); const prompt = `你是温和、可靠的心理教育陪伴者。只依据给定材料做浅层成长洞察，不诊断、不贴标签、不归罪、不编造父母动机或童年事实；家庭关联只用“可能、从目前材料看、值得核对”。先理解当下，再找重复，最后才检查家庭/成长证据。若无证据，origin.status 必须为 insufficient_evidence，正文明确暂不归因。repetition.status=confirmed 时 evidence 至少两条且来自不同时间/场景。测试结果只能作辅助，不能单独作为童年因果证据。四模块关联度是本次困惑构成，合计100，不是能力分数。若有危机风险，suppressCommercialCTA=true。只输出合法 JSON：{coreBlock,patternChain:{trigger,interpretation,emotions,emotionalNeeds,automaticResponse,result,oldRule},repetition:{status,summary,adaptiveFunction,evidence:[{sourceType,sourceId,fact,timeContext}]},origin:{status,relationType,summary,evidence:[{sourceType,sourceId,fact,timeContext}],caveat},growthModules:[{id,name,association,role,direction}],newResponses:[{type,title,action}],nextGrowth:{theme,why,openQuestions},meta:{insightConfidence,familyLinkStrength,deepDiveRecommended,suppressCommercialCTA}}。newResponses 必为 awareness/experiment/reflection 三条低风险现实微实验。\n当前困惑：${question}\n补充回答：${JSON.stringify(reflections)}\n测试：${JSON.stringify(input.assessment || null)}\n父母高价值线索：${JSON.stringify(input.parentHighValueSignals || {})}\n背景：${JSON.stringify(input.profile || {})}\n父母信息：${JSON.stringify(input.people || {})}\n材料：${JSON.stringify(materials)}`; const response = await fetch(process.env.DEEPSEEK_API_URL || 'https://api.deepseek.com/chat/completions', { method: 'POST', headers: { authorization: `Bearer ${process.env.DEEPSEEK_API_KEY}`, 'content-type': 'application/json' }, body: JSON.stringify({ model: process.env.DEEPSEEK_MODEL || 'deepseek-chat', temperature: 0.45, messages: [{ role: 'user', content: prompt }] }) }); if (!response.ok) return json(502, { message: '智能洞察暂时无法生成，请稍后再试。' }, origin); const raw = (await response.json())?.choices?.[0]?.message?.content?.trim(); const dilemma = safeInsight(parseJson(raw || ''), crisis) || fallbackInsight(question, crisis); return json(200, { status: 'completed', body: bodyFor(dilemma), dilemma, sourceIds: materials.map((item) => item.id) }, origin); } catch { return json(400, { message: '请求格式不正确，请稍后再试。' }, origin); } };

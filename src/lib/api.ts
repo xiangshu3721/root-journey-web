@@ -1,4 +1,4 @@
-import type { BasicProfile, DilemmaAnalysis, EvidenceType, FamilyPatternAssessment, Insight, JourneyData, Material, MaterialSubject, Person, PersonId } from '../types';
+import type { BasicProfile, DilemmaAnalysis, EvidenceType, FamilyPatternAssessment, Insight, JourneyData, Material, MaterialSubject, ParentHighValueSignals, Person, PersonId } from '../types';
 import { clearJourney, loadJourney, saveJourney } from './storage';
 
 const fallbackQuestions: Record<PersonId, string[]> = {
@@ -19,16 +19,17 @@ const labelsForPerson = (personId: PersonId) => personId === 'mother' ? '母亲'
 const insightApiUrl = (import.meta.env.VITE_INSIGHT_API_URL as string | undefined)
   || 'https://1304965105-dxgfj5bl4i.ap-shanghai.tencentscf.com';
 
-async function generateDeepInsight(question: string, materials: Material[], assessment?: FamilyPatternAssessment, people?: Record<PersonId, Person>, profile?: BasicProfile) {
+async function generateDeepInsight(question: string, materials: Material[], assessment?: FamilyPatternAssessment, people?: Record<PersonId, Person>, profile?: BasicProfile, parentHighValueSignals?: JourneyData['parentHighValueSignals'], reflections: string[] = [], forceGenerate = false) {
   const response = await fetch(insightApiUrl, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ question, materials, assessment, people, profile })
+    body: JSON.stringify({ question, materials, assessment, people, profile, parentHighValueSignals, reflections, forceGenerate })
   });
-  const result = await response.json() as { body?: string; dilemma?: DilemmaAnalysis; sourceIds?: string[]; message?: string };
+  const result = await response.json() as { status?: 'completed' | 'clarification_needed'; clarification?: { question?: string }; body?: string; dilemma?: DilemmaAnalysis; sourceIds?: string[]; message?: string };
   if (!response.ok) throw new Error(result.message || '智能洞察暂时无法生成，请稍后再试。');
+  if (result.status === 'clarification_needed') return { status: result.status, question: result.clarification?.question || '' };
   if (!result.body) throw new Error('智能洞察未返回有效内容，请稍后再试。');
-  return { body: result.body, dilemma: result.dilemma, sourceIds: result.sourceIds || [] };
+  return { status: 'completed' as const, body: result.body, dilemma: result.dilemma!, sourceIds: result.sourceIds || [] };
 }
 
 export const api = {
@@ -64,7 +65,7 @@ export const api = {
     return { personId, section, reason: `已归入「${labelsForPerson(personId)} · ${section}」，后续可手动调整。` };
   },
   async summarize(_personId: PersonId, _section: string, material: Material): Promise<Insight> { return { id: crypto.randomUUID(), kind: 'summary', status: 'rejected', sourceIds: [material.id], title: '暂未形成可确认理解', body: '' }; },
-  async deepInsight(question: string, materials: Material[], assessment?: FamilyPatternAssessment, people?: Record<PersonId, Person>, profile?: BasicProfile): Promise<Insight> { const output = await generateDeepInsight(question, materials, assessment, people, profile); return { id: crypto.randomUUID(), kind: 'dilemma', status: 'confirmed', title: '从原生家庭视角的一次理解', ...output }; },
+  async deepInsight(question: string, materials: Material[], assessment?: FamilyPatternAssessment, people?: Record<PersonId, Person>, profile?: BasicProfile, parentHighValueSignals?: Partial<Record<PersonId, ParentHighValueSignals>>, reflections: string[] = [], forceGenerate = false) { return generateDeepInsight(question, materials, assessment, people, profile, parentHighValueSignals, reflections, forceGenerate); },
   async parentPortrait(_personId: PersonId, _materials: Material[], _feedback: Insight[] = []): Promise<{ sections: Record<string, string>; summary: string; extras: Record<string, string> } | null> { return null; },
   async dynamicInsights(_materials: Material[], _feedback: Insight[], _portraits: Insight[]) { return [] as Array<{ title: string; body: string }>; },
   async innerChat(_role: string, _message: string, _materials: Material[]) { return { reply: '我在这里。我们不急着给出答案，可以先看见此刻真正的感受和需要。' }; }
