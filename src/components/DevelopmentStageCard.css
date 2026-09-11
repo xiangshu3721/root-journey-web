@@ -1,0 +1,46 @@
+.development-card { margin-top: 24px; padding: clamp(20px, 3vw, 32px); border: 1px solid #d6e2d5; border-radius: 16px; background: #fffefa; color: #304939; }
+.development-card > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.development-card h2 { margin: 9px 0 0; font: 400 clamp(24px, 3vw, 29px)/1.4 Georgia, "Songti SC", serif; }
+.development-card h3 { margin: 0 0 9px; font-size: 14px; color: #45654c; }
+.development-card p { margin: 0; font-size: 14px; line-height: 1.85; overflow-wrap: anywhere; }
+.development-confidence { flex-shrink: 0; margin-top: 10px; color: #718078; font-size: 11px; }
+.development-card > section { margin-top: 25px; }
+.development-primary { margin-top: 26px; padding: 22px; border-radius: 12px; background: #edf3e9; }
+.development-primary > p { margin: 4px 0; font: 400 28px/1.5 Georgia, "Songti SC", serif; }
+.development-primary small { color: #63776a; }
+.development-theory { margin-top: 23px; padding-bottom: 20px; border-bottom: 1px solid #e1e7de; }
+.development-theory span { display: block; margin-top: 4px; color: #738178; font-size: 13px; }
+.development-card .development-question { font-size: 18px; }
+.development-family { margin-top: 16px; padding-left: 16px; border-left: 2px solid #b7cbb6; }
+.development-family h4 { margin: 0 0 8px; font-size: 13px; }
+.development-family ul { margin: 10px 0 0; padding-left: 20px; color: #65766a; font-size: 13px; line-height: 1.8; overflow-wrap: anywhere; }
+.development-card .development-growth p { font-size: 18px; color: #315e3e; }
+.development-card .development-note { margin-top: 26px; padding-top: 18px; border-top: 1px solid #e1e7de; color: #78847c; font-size: 12px; }
+.development-method { display: block; margin-top: 9px; color: #78847c; font-size: 11px; line-height: 1.6; }
+.development-empty { margin-top: 20px; }
+.development-empty button { margin-top: 16px; text-align: left; line-height: 1.5; }
+.development-refresh { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 20px; }
+.development-refresh p { font-size: 13px; }
+.development-refresh button { flex-shrink: 0; font-size: 12px; }
+.development-supplement { margin-top: 16px; }
+.development-supplement-head, .development-supplement-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.development-supplement-head { color: #718078; font-size: 12px; }
+.development-supplement h3 { margin: 12px 0 20px; font-size: 20px; font-weight: 400; line-height: 1.65; }
+.development-options { display: grid; gap: 8px; }
+.development-options button { min-height: 46px; padding: 12px 15px; border: 1px solid #d6e1d2; border-radius: 10px; background: transparent; text-align: left; color: inherit; }
+.development-options button[aria-pressed="true"] { background: #edf3e9; border-color: #78967b; }
+.development-supplement-actions { margin-top: 18px; }
+.development-card button:disabled { opacity: .5; cursor: not-allowed; }
+@media (max-width: 760px) {
+  .development-card > header { display: block; }
+  .development-confidence { display: block; margin-top: 10px; }
+  .development-card { padding: 20px 18px; }
+  .development-primary { padding: 18px; }
+  .development-primary > p { font-size: 26px; }
+  .development-refresh { align-items: flex-start; flex-direction: column; gap: 10px; }
+}
+:root[data-theme="dark"] .development-card { background: #17221c; border-color: #354b3b; color: #dbe6db; }
+:root[data-theme="dark"] .development-primary, :root[data-theme="dark"] .development-options button[aria-pressed="true"] { background: #243c2c; }
+:root[data-theme="dark"] .development-card h3, :root[data-theme="dark"] .development-card .development-growth p { color: #b7d7b6; }
+:root[data-theme="dark"] .development-confidence, :root[data-theme="dark"] .development-primary small, :root[data-theme="dark"] .development-theory span, :root[data-theme="dark"] .development-family ul, :root[data-theme="dark"] .development-note, :root[data-theme="dark"] .development-method { color: #adbfb0; }
+:root[data-theme="dark"] .development-theory, :root[data-theme="dark"] .development-note, :root[data-theme="dark"] .development-options button { border-color: #3d5142; }

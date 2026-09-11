@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { FamilyPatternAssessment } from '../types';
+import { developmentQuestions, hasDevelopmentAnswers } from '../lib/developmentStage';
 
 type DimensionId = 'self_awareness' | 'autonomy_boundary' | 'emotion_awareness' | 'emotional_independence' | 'listening_understanding' | 'gentle_expression' | 'self_worth' | 'value_realization';
 type ItemType = 'baseline' | 'stress' | 'action' | 'validation';
@@ -60,12 +61,37 @@ function calculate(answers: Array<number | null>) {
 }
 
 export function FamilyPatternTest({ assessment, startAtTest = false, onComplete, onExit }: { assessment?: FamilyPatternAssessment; startAtTest?: boolean; onComplete?: (next: FamilyPatternAssessment) => void | Promise<void>; onContinueParents?: () => void; onExit?: () => void }) {
-  const [mode, setMode] = useState<'intro' | 'test'>(startAtTest ? 'test' : 'intro'); const [step, setStep] = useState(0); const [answers, setAnswers] = useState<Array<number | null>>(assessment?.assessmentVersion === '2.0' ? assessment.answers : Array(33).fill(null)); const [finishing, setFinishing] = useState(false); const phase = phases.find((item) => step >= item.start && step <= item.end)!; const abilityQuestion = step < 28 ? lifeMapQuestions[step] : undefined; const climateQuestion = step >= 28 ? climates[step - 28] : undefined; const text = abilityQuestion ? abilityQuestion.text : climateQuestion![1];
+  const [mode, setMode] = useState<'intro' | 'test'>(startAtTest ? 'test' : 'intro');
+  const [step, setStep] = useState(0);
+  const [answers, setAnswers] = useState<Array<number | null>>(assessment?.assessmentVersion === '2.0' ? assessment.answers.slice(0, 33) : Array(33).fill(null));
+  const [developmentAnswers, setDevelopmentAnswers] = useState<Array<number | null>>(assessment?.developmentAnswers || Array(4).fill(null));
+  const [finishing, setFinishing] = useState(false);
+  const [error, setError] = useState('');
+  const phase = step >= 33 ? { title: '回到当下', start: 33, end: 36, transition: '' } : phases.find((item) => step >= item.start && step <= item.end)!;
+  const abilityQuestion = step < 28 ? lifeMapQuestions[step] : undefined;
+  const extraQuestion = step >= 33 ? developmentQuestions[step - 33] : undefined;
+  const text = extraQuestion?.text || abilityQuestion?.text || climates[step - 28][1];
+  const currentAnswer = step >= 33 ? developmentAnswers[step - 33] : answers[step];
   useEffect(() => { window.scrollTo(0, 0); }, [mode, step]);
-  async function complete(finalAnswers = answers) { if (finishing) return; setFinishing(true); const calculated = calculate(finalAnswers); const next: FamilyPatternAssessment = { answers: finalAnswers, answerMap: Object.fromEntries([...lifeMapQuestions.map((item, index) => [item.id, finalAnswers[index]]), ...climates.map(([name], index) => [`F${index + 1}-${name}`, finalAnswers[index + 28]])]), scores: patternDimensions.map((item) => calculated.dimensionScores[item.id]), familyClimate: finalAnswers.slice(28), completedAt: new Date().toISOString(), assessmentVersion: '2.0', scoringVersion: '2.0.1', dimensionScores: calculated.dimensionScores, moduleScores: calculated.moduleScores, dimensionStatuses: Object.fromEntries(patternDimensions.map((item) => [item.id, statuses(calculated.dimensionScores[item.id])])), contextVariances: calculated.contextVariances }; try { await onComplete?.(next); } finally { setFinishing(false); } }
-  function answerQuestion(answer: number) { if (finishing) return; const nextAnswers = answers.map((value, index) => index === step ? answer : value); setAnswers(nextAnswers); if (step === 32) void complete(nextAnswers); else setStep((value) => value + 1); }
-  if (mode === 'intro') return <section className="assessment-intro life-assessment-intro"><span>觉塑 · 生命成长地图测评</span><h1>用 33 个问题，看见你此刻的生命力量。</h1><p>先看见自己如何生活、感受、连接与创造，最后再轻轻回望那个家。</p><small>请按真实、惯常的状态作答，没有标准答案。本测试用于自我探索，不是医学或心理诊断。</small><button className="primary" onClick={() => setMode('test')}>开始探索 <b>→</b></button></section>;
-  return <section className="assessment-flow life-assessment-flow"><header><div><span>{phase.title}</span><b>{step - phase.start + 1} / {phase.end - phase.start + 1}</b></div>{startAtTest && <button className="text-button" onClick={onExit}>暂时退出</button>}</header>{phase.transition && step === phase.start && <p className="section-transition">{phase.transition}</p>}<div className="test-progress"><i style={{ width: `${((step + 1) / 33) * 100}%` }} /></div>{step === 28 && <div className="family-switch"><span>回到你长大的那个家</span><p>这不是评价父母好坏，只是回忆那个家庭整体给你的感受。</p></div>}<p className="question-domain">{abilityQuestion ? patternDimensions.find((dimension) => dimension.id === abilityQuestion.primaryDimension)?.name : '家庭氛围'}</p><h2>{text}</h2><div className="answer-list">{options.map((option, index) => <button key={option} disabled={finishing} className={answers[step] === index + 1 ? 'selected' : ''} onClick={() => answerQuestion(index + 1)}><b>{index + 1}</b>{option}</button>)}</div><div className="test-actions"><button className="text-button" disabled={step === 0 || finishing} onClick={() => setStep((value) => value - 1)}>上一题</button>{finishing && <span>正在生成生命地图…</span>}</div></section>;
+  async function complete() { if (finishing || !answers.every((answer) => answer !== null) || !hasDevelopmentAnswers(developmentAnswers)) return; const finalAnswers = answers.slice(0, 33); setError(''); setFinishing(true); const calculated = calculate(finalAnswers); const next: FamilyPatternAssessment = { answers: finalAnswers, developmentAnswers: [...developmentAnswers], answerMap: Object.fromEntries([...lifeMapQuestions.map((item, index) => [item.id, finalAnswers[index]]), ...climates.map(([name], index) => [`F${index + 1}-${name}`, finalAnswers[index + 28]])]), scores: patternDimensions.map((item) => calculated.dimensionScores[item.id]), familyClimate: finalAnswers.slice(28), completedAt: new Date().toISOString(), assessmentVersion: '2.0', scoringVersion: '2.0.1', dimensionScores: calculated.dimensionScores, moduleScores: calculated.moduleScores, dimensionStatuses: Object.fromEntries(patternDimensions.map((item) => [item.id, statuses(calculated.dimensionScores[item.id])])), contextVariances: calculated.contextVariances }; try { await onComplete?.(next); } catch { setError('保存暂未成功，你的作答仍在，请再次提交。'); } finally { setFinishing(false); } }
+  function answerQuestion(answer: number) {
+    if (finishing) return;
+    if (step >= 33) setDevelopmentAnswers((current) => current.map((value, index) => index === step - 33 ? answer : value));
+    else setAnswers((current) => current.map((value, index) => index === step ? answer : value));
+    if (step < 36) setStep(step + 1);
+  }
+  if (mode === 'intro') return <section className="assessment-intro life-assessment-intro"><span>觉塑 · 生命成长地图测评</span><h1>用 37 个问题，看见你此刻的生命力量。</h1><p>先看见自己如何生活、感受、连接与创造，再轻轻回望那个家，回到此刻的自己。</p><small>请按真实、惯常的状态作答，没有标准答案。本测试用于自我探索，不是医学或心理诊断。</small><button className="primary" onClick={() => setMode('test')}>开始探索 <b>→</b></button></section>;
+  return <section className="assessment-flow life-assessment-flow">
+    <header><div><span>{phase.title}</span><b>{step + 1} / 37</b></div>{startAtTest && <button className="text-button" disabled={finishing} onClick={onExit}>暂时退出</button>}</header>
+    {phase.transition && step === phase.start && <p className="section-transition">{phase.transition}</p>}
+    <div className="test-progress"><i style={{ width: `${((step + 1) / 37) * 100}%` }} /></div>
+    {step === 28 && <div className="family-switch"><span>回到你长大的那个家</span><p>这不是评价父母好坏，只是回忆那个家庭整体给你的感受。</p></div>}
+    <p className="question-domain">{extraQuestion?.domain || (abilityQuestion ? patternDimensions.find((dimension) => dimension.id === abilityQuestion.primaryDimension)?.name : '家庭氛围')}</p>
+    <h2>{text}</h2>
+    <div className="answer-list">{options.map((option, index) => <button key={option} disabled={finishing} aria-pressed={currentAnswer === index + 1} className={currentAnswer === index + 1 ? 'selected' : ''} onClick={() => answerQuestion(index + 1)}><b>{index + 1}</b>{option}</button>)}</div>
+    <div className="test-actions"><button className="text-button" disabled={step === 0 || finishing} onClick={() => setStep(step - 1)}>上一题</button>{step === 36 && <button className="primary" disabled={finishing || answers.some((answer) => answer === null) || !hasDevelopmentAnswers(developmentAnswers)} onClick={() => void complete()}>{finishing ? '正在生成生命地图…' : '生成生命地图'} <b>→</b></button>}</div>
+    {error && <p className="error" role="alert">{error}</p>}
+  </section>;
 }
 
 export function AssessmentResult({ assessment, onRestart }: { assessment: FamilyPatternAssessment; onRestart?: () => void }) {
