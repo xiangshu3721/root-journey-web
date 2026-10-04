@@ -1,6 +1,6 @@
 // 历史记录 / 导出图片：用 public/result-kit.js（共用小工具，纯前端，只存本机）。
 type Kit = {
-  configure: (o: { id: string; title: string; capture?: () => unknown }) => void;
+  configure: (o: { id: string; title: string; capture?: () => unknown; start?: unknown }) => void;
   save: (s: unknown, o?: { key?: string }) => { ok: boolean };
   list: () => unknown[];
   exportImage: (s: unknown, t?: number) => void;
@@ -25,6 +25,7 @@ export function setupKit() {
   k?.configure({
     id: 'root',
     title: '寻根之旅 · 我的生命成长地图',
+    start: [{ sel: 'button', text: '^\\s*(开启旅程|开始探索)' }],
     capture: () => {
       const page = document.querySelector('.life-map-page');
       return page ? k.capture(page, { skip: '.rj-tools,.booking-modal' }) : null;
