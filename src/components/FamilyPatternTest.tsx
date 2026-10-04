@@ -74,6 +74,8 @@ export function FamilyPatternTest({ assessment, startAtTest = false, onComplete,
   const text = extraQuestion?.text || abilityQuestion?.text || climates[step - 28][1];
   const currentAnswer = step >= 33 ? developmentAnswers[step - 33] : answers[step];
   useEffect(() => { window.scrollTo(0, 0); }, [mode, step]);
+  // 昵称门槛：进入答题（含重新测试）没确认过昵称就先补录；点「返回」回到介绍页 / 生命地图
+  useEffect(() => { if (mode === 'test') kit()?.guard(true, () => { if (startAtTest && onExit) onExit(); else setMode('intro'); }); }, [mode]);
   async function complete() { if (finishing || !answers.every((answer) => answer !== null) || !hasDevelopmentAnswers(developmentAnswers)) return; const finalAnswers = answers.slice(0, 33); setError(''); setFinishing(true); const calculated = calculate(finalAnswers); const next: FamilyPatternAssessment = { answers: finalAnswers, developmentAnswers: [...developmentAnswers], answerMap: Object.fromEntries([...lifeMapQuestions.map((item, index) => [item.id, finalAnswers[index]]), ...climates.map(([name], index) => [`F${index + 1}-${name}`, finalAnswers[index + 28]])]), scores: patternDimensions.map((item) => calculated.dimensionScores[item.id]), familyClimate: finalAnswers.slice(28), completedAt: new Date().toISOString(), assessmentVersion: '2.0', scoringVersion: '2.0.1', dimensionScores: calculated.dimensionScores, moduleScores: calculated.moduleScores, dimensionStatuses: Object.fromEntries(patternDimensions.map((item) => [item.id, statuses(calculated.dimensionScores[item.id])])), contextVariances: calculated.contextVariances }; try { await onComplete?.(next); } catch { setError('保存暂未成功，你的作答仍在，请再次提交。'); } finally { setFinishing(false); } }
   function answerQuestion(answer: number) {
     if (finishing) return;
@@ -81,7 +83,7 @@ export function FamilyPatternTest({ assessment, startAtTest = false, onComplete,
     else setAnswers((current) => current.map((value, index) => index === step ? answer : value));
     if (step < 36) setStep(step + 1);
   }
-  if (mode === 'intro') return <section className="assessment-intro life-assessment-intro"><span>觉塑 · 生命成长地图测评</span><h1>用 37 个问题，看见你此刻的生命力量。</h1><p>先看见自己如何生活、感受、连接与创造，再轻轻回望那个家，回到此刻的自己。</p><small>请按真实、惯常的状态作答，没有标准答案。本测试用于自我探索，不是医学或心理诊断。</small><button className="primary" onClick={() => setMode('test')}>开始探索 <b>→</b></button></section>;
+  if (mode === 'intro') return <section className="assessment-intro life-assessment-intro"><span>觉塑 · 生命成长地图测评</span><h1>用 37 个问题，看见你此刻的生命力量。</h1><p>先看见自己如何生活、感受、连接与创造，再轻轻回望那个家，回到此刻的自己。</p><small>请按真实、惯常的状态作答，没有标准答案。本测试用于自我探索，不是医学或心理诊断。</small><button className="primary" onClick={() => { const k = kit(); if (k) k.ensureNick(() => setMode('test')); else setMode('test'); }}>开始探索 <b>→</b></button></section>;
   return <section className="assessment-flow life-assessment-flow">
     <header><div><span>{phase.title}</span><b>{step + 1} / 37</b></div>{startAtTest && <button className="text-button" disabled={finishing} onClick={onExit}>暂时退出</button>}</header>
     {phase.transition && step === phase.start && <p className="section-transition">{phase.transition}</p>}
