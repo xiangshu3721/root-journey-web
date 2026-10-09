@@ -28,7 +28,7 @@ export function setupKit() {
     start: [{ sel: 'button', text: '^\\s*(开启旅程|开始探索)' }],
     capture: () => {
       const page = document.querySelector('.life-map-page');
-      return page ? k.capture(page, { skip: '.rj-tools,.booking-modal' }) : null;
+      return page ? k.capture(page, { skip: '.rj-tools' }) : null;
     },
   });
 }
