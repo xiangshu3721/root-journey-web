@@ -305,3 +305,12 @@
 
 .rj-tools { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin: 4px 0 14px; }
 .rj-tools small { flex-basis: 100%; color: var(--muted, #7a6f5e); font-size: 12px; line-height: 1.6; }
+.rj-tools .primary { flex: 1 1 100%; justify-content: center; min-height: 48px; }
+.rj-tools .primary:disabled { opacity: .72; cursor: wait; }
+.rj-share-note { flex-basis: 100%; margin: 0; color: #7a6f5e; font-size: 13px; line-height: 1.5; }
+.rj-share-note.warn { color: #9b5b3c; }
+@media (min-width: 640px) {
+  .rj-tools .primary { flex: 0 0 auto; min-width: 168px; }
+}
+:root[data-theme="dark"] .rj-share-note { color: #c4b8a8; }
+:root[data-theme="dark"] .rj-share-note.warn { color: #e3b39a; }

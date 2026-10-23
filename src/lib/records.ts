@@ -11,6 +11,7 @@ type Kit = {
   nickReset: () => void;
   capture: (root: Element | null, o?: { skip?: string }) => unknown;
   refreshSections: () => void;
+  nick?: { get: () => string; set: (value: string) => void; clean: (value: string) => string; confirmed: () => boolean };
 };
 
 export type RecordSummary = { headline: string; sub: string; metrics: Array<{ label: string; value: string; frac: number; tone: string }>; notes: string[] };
